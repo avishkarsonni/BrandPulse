@@ -1,0 +1,23 @@
+﻿ Sentiment Analysis Dashboard
+
+A comprehensive React-based dashboard for sentiment analysis of customer reviews and social media comments using GPT embeddings and machine learning classifiers.
+
+ Features:
+ Multi-panel dashboard with real-time analytics
+ Advanced data visualizations with Chart.js
+ Material-UI responsive design
+ Backend API integration (FastAPI/Flask)
+ Real-time sentiment processing
+ Topic analysis and keyword extraction
+ Multi-channel support (Twitter, Facebook, Instagram)
+ Advanced filtering and search
+ Data export functionality
+ Comprehensive configuration management
+
+ Tech Stack:
+- React 18 + Material-UI
+- Chart.js for visualizations
+- Axios for API communication
+- React Router for navigation
+
+ Ready for production deployment!
