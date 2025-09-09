@@ -1,0 +1,4 @@
+﻿# Replace YOUR_USERNAME with your GitHub username
+git remote add origin https://github.com/Greatvictory24/sentiment-analysis-dashboard.git
+git branch -M main
+git push -u origin main
