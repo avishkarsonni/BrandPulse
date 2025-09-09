@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Container,
@@ -9,6 +9,10 @@ import {
   CardContent,
   Paper,
   Chip,
+  TextField,
+  Autocomplete,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Analytics,
@@ -19,12 +23,85 @@ import {
   SentimentSatisfied,
   Speed,
   Security,
+  Search as SearchIcon,
+  PhoneAndroid,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useProduct } from '../contexts/ProductContext';
+import { apiService } from '../services/api';
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const { updateProduct } = useProduct();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Smartphone products for search
+  const smartphoneProducts = [
+    { name: 'iPhone 15 Pro', brand: 'Apple', category: 'Smartphones' },
+    { name: 'iPhone 15', brand: 'Apple', category: 'Smartphones' },
+    { name: 'iPhone 14 Pro', brand: 'Apple', category: 'Smartphones' },
+    { name: 'Samsung Galaxy S24', brand: 'Samsung', category: 'Smartphones' },
+    { name: 'Samsung Galaxy S23', brand: 'Samsung', category: 'Smartphones' },
+    { name: 'Google Pixel 8', brand: 'Google', category: 'Smartphones' },
+    { name: 'Google Pixel 7', brand: 'Google', category: 'Smartphones' },
+    { name: 'OnePlus 12', brand: 'OnePlus', category: 'Smartphones' },
+    { name: 'Xiaomi 14', brand: 'Xiaomi', category: 'Smartphones' },
+    { name: 'Huawei P60', brand: 'Huawei', category: 'Smartphones' },
+  ];
+
+  const handleSearch = async (productName) => {
+    if (!productName) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Find the product in our smartphone list
+      const product = smartphoneProducts.find(p => 
+        p.name.toLowerCase().includes(productName.toLowerCase())
+      );
+      
+      if (product) {
+        // Get product data from API
+        const searchResults = await apiService.searchProducts(productName, { category: 'Smartphones' });
+        const productData = searchResults.results?.[0];
+        
+        if (productData) {
+          // Update the global product context
+          updateProduct(productData, productData);
+          
+          // Navigate to dashboard with the selected product
+          navigate('/dashboard');
+        } else {
+          setError('Product not found. Please try a different search term.');
+        }
+      } else {
+        setError('Please select a smartphone from the suggestions.');
+      }
+    } catch (err) {
+      setError('Failed to load product data. Please try again.');
+      console.error('Search error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (event, newInputValue) => {
+    setSearchQuery(newInputValue);
+    if (newInputValue.length > 1) {
+      const filtered = smartphoneProducts.filter(product =>
+        product.name.toLowerCase().includes(newInputValue.toLowerCase()) ||
+        product.brand.toLowerCase().includes(newInputValue.toLowerCase())
+      );
+      setSuggestions(filtered);
+    } else {
+      setSuggestions([]);
+    }
+  };
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -162,6 +239,94 @@ const LandingPage = () => {
                 Transform customer feedback into actionable insights with AI-powered sentiment analysis
               </Typography>
             </motion.div>
+
+            {/* Smartphone Search Section */}
+            <motion.div
+              initial={{ y: 30, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.6, duration: 0.6 }}
+            >
+              <Box sx={{ maxWidth: 600, mx: 'auto', mb: 4 }}>
+                <Typography variant="h6" sx={{ mb: 3, textAlign: 'center' }}>
+                  <PhoneAndroid sx={{ mr: 1, verticalAlign: 'middle' }} />
+                  Search for a Smartphone to Analyze
+                </Typography>
+                
+                <Autocomplete
+                  freeSolo
+                  options={suggestions}
+                  getOptionLabel={(option) => typeof option === 'string' ? option : option.name}
+                  inputValue={searchQuery}
+                  onInputChange={handleInputChange}
+                  onChange={(event, newValue) => {
+                    if (newValue) {
+                      handleSearch(typeof newValue === 'string' ? newValue : newValue.name);
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Search smartphones (e.g., iPhone 15 Pro, Samsung Galaxy S24...)"
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: <SearchIcon sx={{ color: 'rgba(255,255,255,0.7)', mr: 1 }} />,
+                        endAdornment: loading ? <CircularProgress size={20} color="inherit" /> : null,
+                        sx: {
+                          backgroundColor: 'rgba(255,255,255,0.1)',
+                          borderRadius: 2,
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(255,255,255,0.3)',
+                          },
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(255,255,255,0.5)',
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'white',
+                          },
+                          '& input': {
+                            color: 'white',
+                            '&::placeholder': {
+                              color: 'rgba(255,255,255,0.7)',
+                            },
+                          },
+                        },
+                      }}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                        <PhoneAndroid sx={{ mr: 2, color: 'primary.main' }} />
+                        <Box>
+                          <Typography variant="body1">{option.name}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {option.brand} • {option.category}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  )}
+                  sx={{
+                    '& .MuiAutocomplete-popper': {
+                      '& .MuiPaper-root': {
+                        backgroundColor: 'white',
+                        color: 'black',
+                      },
+                    },
+                  }}
+                />
+
+                {error && (
+                  <Alert severity="error" sx={{ mt: 2, backgroundColor: 'rgba(244, 67, 54, 0.1)' }}>
+                    {error}
+                  </Alert>
+                )}
+
+                <Typography variant="body2" sx={{ mt: 2, textAlign: 'center', opacity: 0.8 }}>
+                  Try searching for: iPhone, Samsung, Google Pixel, OnePlus, or Xiaomi
+                </Typography>
+              </Box>
+            </motion.div>
             <motion.div
               initial={{ y: 30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -236,22 +401,9 @@ const LandingPage = () => {
                       }}
                     >
                       <CardContent>
-                        <motion.div
-                          animate={{ 
-                            rotate: [0, 10, -10, 0],
-                            scale: [1, 1.1, 1]
-                          }}
-                          transition={{ 
-                            duration: 2, 
-                            repeat: Infinity, 
-                            repeatDelay: 3 + index,
-                            ease: "easeInOut"
-                          }}
-                        >
-                          <Box sx={{ color: 'primary.main', mb: 2 }}>
-                            {stat.icon}
-                          </Box>
-                        </motion.div>
+                        <Box sx={{ color: 'primary.main', mb: 2 }}>
+                          {stat.icon}
+                        </Box>
                         <motion.div
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
@@ -310,22 +462,9 @@ const LandingPage = () => {
                       }}
                     >
                       <CardContent>
-                        <motion.div
-                          animate={{ 
-                            rotate: [0, 5, -5, 0],
-                            scale: [1, 1.05, 1]
-                          }}
-                          transition={{ 
-                            duration: 3, 
-                            repeat: Infinity, 
-                            repeatDelay: 2 + index,
-                            ease: "easeInOut"
-                          }}
-                        >
-                          <Box sx={{ color: feature.color, mb: 2 }}>
-                            {feature.icon}
-                          </Box>
-                        </motion.div>
+                        <Box sx={{ color: feature.color, mb: 2 }}>
+                          {feature.icon}
+                        </Box>
                         <motion.div
                           initial={{ x: -20, opacity: 0 }}
                           animate={{ x: 0, opacity: 1 }}
