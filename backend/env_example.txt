@@ -1,0 +1,17 @@
+# Authentication Options (choose one):
+
+# Option 1: Service Account (Recommended - already configured)
+# Place your service_account.json file in the backend directory
+# No additional environment variables needed
+
+# Option 2: Google API Key (Alternative)
+# Get your API key from: https://aistudio.google.com/app/apikey
+# GOOGLE_API_KEY=your_google_api_key_here
+
+# Server configuration
+HOST=0.0.0.0
+PORT=8000
+DEBUG=true
+
+# Project configuration
+PROJECT_ID=truxtsaas

@@ -127,3 +127,47 @@ jspm_packages/
 ehthumbs.db
 Thumbs.db
 node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Google Cloud Service Account Keys
+service_account.json
+*.json
+!package.json
+!package-lock.json
+
+# Backend specific
+backend/.env
+backend/__pycache__/
+backend/*.pyc
+backend/.venv/

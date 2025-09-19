@@ -3,7 +3,7 @@ import axios from 'axios';
 // Create axios instance with default config
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000',
-  timeout: 5000, // Reduced timeout for faster fallback to dummy data
+  timeout: 30000, // Increased timeout for Gemini API responses
   headers: {
     'Content-Type': 'application/json',
   },
@@ -113,7 +113,7 @@ class ApiService {
 
   async testConnection() {
     try {
-      const response = await api.get('/api/health');
+      const response = await api.get('/health');
       return response.data;
     } catch (error) {
       throw new Error('Connection test failed');
@@ -147,6 +147,54 @@ class ApiService {
       return response.data;
     } catch (error) {
       throw new Error('Failed to export data');
+    }
+  }
+
+  // Chat with ADK Agent endpoints
+  async sendChatMessage(text, productName = null, context = null) {
+    try {
+      const response = await api.post('/api/chat', {
+        text,
+        product_name: productName,
+        context
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error('Failed to send message to agent');
+    }
+  }
+
+  async getChatHistory(sessionId = 'default') {
+    try {
+      const response = await api.get('/api/chat/history', {
+        params: { session_id: sessionId }
+      });
+      return response.data;
+    } catch (error) {
+      console.warn('Failed to get chat history:', error);
+      return { messages: [] };
+    }
+  }
+
+  async clearChatHistory(sessionId = 'default') {
+    try {
+      const response = await api.delete('/api/chat/history', {
+        params: { session_id: sessionId }
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error('Failed to clear chat history');
+    }
+  }
+
+  async analyzeProduct(productName) {
+    try {
+      const response = await api.post('/api/analyze/product', null, {
+        params: { product_name: productName }
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error('Failed to analyze product');
     }
   }
 

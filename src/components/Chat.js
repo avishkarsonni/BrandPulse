@@ -16,6 +16,13 @@ import {
   InputAdornment,
   Tooltip,
   Badge,
+  Chip,
+  CircularProgress,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -25,55 +32,35 @@ import {
   FilterList as FilterIcon,
   Chat as ChatIcon,
   Settings as SettingsIcon,
+  SmartToy as SmartToyIcon,
+  Analytics as AnalyticsIcon,
+  Clear as ClearIcon,
+  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { apiService } from '../services/api';
 
 const Chat = () => {
   const [messages, setMessages] = useState([
     {
       id: 1,
-      text: "Hello! I'm here to help you analyze sentiment data. What would you like to know?",
+      text: "## Welcome to BrandPulse Assistant! 🧠\n\nI'm your AI expert for analyzing products and their public perception. I can help you:\n\n- **Analyze brand sentiment** and market trends\n- **Compare competitive positioning** \n- **Identify strengths and weaknesses**\n- **Provide actionable recommendations**\n\n### What product would you like to discuss today?\n\n*Try asking about any product like iPhone 15, Tesla Model Y, or Samsung Galaxy S24!*",
       sender: 'ai',
-      timestamp: '10:30 AM',
-      avatar: '🤖',
-      name: 'AI Assistant',
-    },
-    {
-      id: 2,
-      text: "Hi! Can you show me the latest sentiment trends for our product?",
-      sender: 'user',
-      timestamp: '10:31 AM',
-      avatar: '👤',
-      name: 'You',
-    },
-    {
-      id: 3,
-      text: "Based on the latest data, your product sentiment is trending positively with 68.2% positive reviews. The main topics driving positive sentiment are 'Product Quality' and 'Fast Delivery'. Would you like me to dive deeper into any specific aspect?",
-      sender: 'ai',
-      timestamp: '10:32 AM',
-      avatar: '🤖',
-      name: 'AI Assistant',
-    },
-    {
-      id: 4,
-      text: "That's great! Can you also show me the negative sentiment breakdown?",
-      sender: 'user',
-      timestamp: '10:33 AM',
-      avatar: '👤',
-      name: 'You',
-    },
-    {
-      id: 5,
-      text: "Of course! The negative sentiment is at 18.5%, primarily driven by 'Customer Service' (27.6%) and 'Technical Support' (11.8%). The main concerns are response time and issue resolution. I recommend focusing on improving these areas to boost overall satisfaction.",
-      sender: 'ai',
-      timestamp: '10:34 AM',
-      avatar: '🤖',
-      name: 'AI Assistant',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      avatar: '🧠',
+      name: 'BrandPulse Assistant',
     },
   ]);
 
   const [newMessage, setNewMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [productName, setProductName] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [showProductDialog, setShowProductDialog] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('unknown');
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -84,42 +71,124 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      const userMessage = {
-        id: messages.length + 1,
-        text: newMessage,
-        sender: 'user',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        avatar: '👤',
-        name: 'You',
+  useEffect(() => {
+    // Check backend connection on component mount
+    checkConnection();
+  }, []);
+
+  const checkConnection = async () => {
+    try {
+      await apiService.testConnection();
+      setConnectionStatus('connected');
+    } catch (error) {
+      setConnectionStatus('disconnected');
+      console.warn('Backend not available:', error);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) return;
+
+    const userMessage = {
+      id: messages.length + 1,
+      text: newMessage,
+      sender: 'user',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      avatar: '👤',
+      name: 'You',
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    const currentMessage = newMessage;
+    setNewMessage('');
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Send message to Google ADK agent
+      const response = await apiService.sendChatMessage(
+        currentMessage, 
+        productName || null, 
+        `User is asking about product analysis and public perception.`
+      );
+      
+      const aiMessage = {
+        id: messages.length + 2,
+        text: response.response,
+        sender: 'ai',
+        timestamp: response.timestamp ? new Date(response.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        avatar: '🧠',
+        name: response.agent_name || 'BrandPulse Assistant',
       };
 
-      setMessages([...messages, userMessage]);
-      setNewMessage('');
-
-      // Simulate AI response
-      setTimeout(() => {
-        const aiResponses = [
-          "That's an interesting question! Let me analyze the data for you.",
-          "Based on the current sentiment analysis, here's what I found...",
-          "Great question! The data shows some interesting patterns.",
-          "I can help you with that. Let me pull up the relevant information.",
-          "That's a key insight! Here's what the sentiment data reveals...",
-        ];
-        
-        const aiMessage = {
-          id: messages.length + 2,
-          text: aiResponses[Math.floor(Math.random() * aiResponses.length)],
-          sender: 'ai',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          avatar: '🤖',
-          name: 'AI Assistant',
-        };
-
-        setMessages(prev => [...prev, aiMessage]);
-      }, 1000);
+      setMessages(prev => [...prev, aiMessage]);
+      setConnectionStatus('connected');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setConnectionStatus('disconnected');
+      
+      // Fallback response when backend is not available
+      const fallbackMessage = {
+        id: messages.length + 2,
+        text: "I'm sorry, I'm currently unable to connect to the analysis engine. Please make sure the backend server is running. In the meantime, I can help you understand that BrandPulse analyzes product sentiment, tracks public perception trends, and provides actionable insights for brand management.",
+        sender: 'ai',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        avatar: '⚠️',
+        name: 'BrandPulse Assistant (Offline)',
+      };
+      
+      setMessages(prev => [...prev, fallbackMessage]);
+      setError('Unable to connect to the analysis engine. Please check if the backend server is running.');
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleQuickAction = async (action) => {
+    let prompt = '';
+    switch (action) {
+      case 'Analyze Product':
+        if (!productName) {
+          setShowProductDialog(true);
+          return;
+        }
+        prompt = `Please provide a comprehensive analysis of the public perception for ${productName}. Include market sentiment, key strengths and weaknesses, competitive positioning, and recommendations.`;
+        break;
+      case 'Sentiment Trends':
+        prompt = productName 
+          ? `Show me the current sentiment trends for ${productName}. What are people saying about it recently?`
+          : 'What are the current sentiment analysis trends and patterns you can identify?';
+        break;
+      case 'Competitive Analysis':
+        prompt = productName
+          ? `How does ${productName} compare to its competitors in terms of public perception and market sentiment?`
+          : 'Can you help me understand competitive analysis for brand perception?';
+        break;
+      case 'Recommendations':
+        prompt = productName
+          ? `Based on current public perception, what recommendations do you have for improving ${productName}'s brand image?`
+          : 'What are some best practices for improving brand perception and public sentiment?';
+        break;
+      default:
+        prompt = action;
+    }
+    
+    setNewMessage(prompt);
+    setTimeout(() => handleSendMessage(), 100);
+  };
+
+  const handleClearChat = () => {
+    setMessages([
+      {
+        id: 1,
+        text: "## Welcome to BrandPulse Assistant! 🧠\n\nI'm your AI expert for analyzing products and their public perception. I can help you:\n\n- **Analyze brand sentiment** and market trends\n- **Compare competitive positioning** \n- **Identify strengths and weaknesses**\n- **Provide actionable recommendations**\n\n### What product would you like to discuss today?\n\n*Try asking about any product like iPhone 15, Tesla Model Y, or Samsung Galaxy S24!*",
+        sender: 'ai',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        avatar: '🧠',
+        name: 'BrandPulse Assistant',
+      },
+    ]);
+    setError(null);
   };
 
   const handleKeyPress = (event) => {
@@ -130,16 +199,16 @@ const Chat = () => {
   };
 
   const quickActions = [
-    { label: 'Show Sentiment Trends', icon: '📈' },
-    { label: 'Analyze Topics', icon: '🏷️' },
-    { label: 'Channel Performance', icon: '📊' },
-    { label: 'Generate Report', icon: '📋' },
+    { label: 'Analyze Product', icon: '📊', description: 'Get comprehensive product analysis' },
+    { label: 'Sentiment Trends', icon: '📈', description: 'Show current sentiment trends' },
+    { label: 'Competitive Analysis', icon: '🏆', description: 'Compare with competitors' },
+    { label: 'Recommendations', icon: '💡', description: 'Get improvement suggestions' },
   ];
 
   const recentConversations = [
-    { id: 1, title: 'Sentiment Analysis Discussion', preview: 'Latest trends and insights...', time: '2 min ago', unread: 0 },
-    { id: 2, title: 'Topic Analysis Help', preview: 'Understanding customer feedback...', time: '1 hour ago', unread: 2 },
-    { id: 3, title: 'Dashboard Configuration', preview: 'Setting up new widgets...', time: '3 hours ago', unread: 0 },
+    { id: 1, title: 'Product Analysis: iPhone 15', preview: 'Comprehensive market sentiment analysis...', time: '2 min ago', unread: 0 },
+    { id: 2, title: 'Brand Perception Study', preview: 'Tesla vs competitors analysis...', time: '1 hour ago', unread: 0 },
+    { id: 3, title: 'Sentiment Trends Review', preview: 'Nike quarterly perception trends...', time: '3 hours ago', unread: 0 },
   ];
 
   const filteredMessages = messages.filter(message =>
@@ -156,9 +225,17 @@ const Chat = () => {
               <ChatIcon />
             </Avatar>
             <Box>
-              <Typography variant="h6">AI Chat Assistant</Typography>
+              <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                BrandPulse Assistant
+                <Chip 
+                  size="small" 
+                  label={connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'disconnected' ? 'Offline' : 'Checking...'}
+                  color={connectionStatus === 'connected' ? 'success' : connectionStatus === 'disconnected' ? 'error' : 'default'}
+                  variant="outlined"
+                />
+              </Typography>
               <Typography variant="caption" color="textSecondary">
-                Powered by Sentiment Analysis AI
+                Powered by Google ADK • Gemini 2.0 Flash • Product Analysis Expert
               </Typography>
             </Box>
           </Box>
@@ -185,10 +262,42 @@ const Chat = () => {
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Sidebar */}
         <Paper sx={{ width: 300, borderRadius: 0, borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
-          {/* Quick Actions */}
+          {/* Product Input */}
           <Box sx={{ p: 2 }}>
             <Typography variant="subtitle2" gutterBottom>
+              Product Focus
+            </Typography>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Enter product name (optional)"
+              value={productName}
+              onChange={(e) => setProductName(e.target.value)}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <SmartToyIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 2 }}
+            />
+            {error && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+          </Box>
+
+          <Divider />
+
+          {/* Quick Actions */}
+          <Box sx={{ p: 2 }}>
+            <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               Quick Actions
+              <IconButton size="small" onClick={handleClearChat} title="Clear Chat">
+                <ClearIcon fontSize="small" />
+              </IconButton>
             </Typography>
             <Grid container spacing={1}>
               {quickActions.map((action, index) => (
@@ -201,6 +310,8 @@ const Chat = () => {
                       variant="outlined"
                       size="small"
                       fullWidth
+                      onClick={() => handleQuickAction(action.label)}
+                      disabled={isLoading}
                       sx={{ 
                         p: 1, 
                         flexDirection: 'column',
@@ -212,7 +323,7 @@ const Chat = () => {
                       <Typography sx={{ fontSize: '1.2rem', mb: 0.5 }}>
                         {action.icon}
                       </Typography>
-                      <Typography variant="caption">
+                      <Typography variant="caption" sx={{ textAlign: 'center' }}>
                         {action.label}
                       </Typography>
                     </Button>
@@ -322,9 +433,86 @@ const Chat = () => {
                           position: 'relative',
                         }}
                       >
-                        <Typography variant="body2">
-                          {message.text}
-                        </Typography>
+                        {message.sender === 'ai' ? (
+                          <Box sx={{ 
+                            '& h2': { 
+                              fontSize: '1.1rem', 
+                              fontWeight: 'bold', 
+                              mt: 2, 
+                              mb: 1, 
+                              color: 'inherit',
+                              borderBottom: '1px solid rgba(255,255,255,0.2)',
+                              pb: 0.5
+                            },
+                            '& h3': { 
+                              fontSize: '1rem', 
+                              fontWeight: 'bold', 
+                              mt: 1.5, 
+                              mb: 0.5, 
+                              color: 'inherit' 
+                            },
+                            '& p': { 
+                              fontSize: '0.875rem', 
+                              mb: 1, 
+                              color: 'inherit',
+                              lineHeight: 1.5
+                            },
+                            '& ul': { 
+                              pl: 2, 
+                              mb: 1,
+                              '& li': {
+                                fontSize: '0.875rem',
+                                mb: 0.5,
+                                color: 'inherit'
+                              }
+                            },
+                            '& ol': { 
+                              pl: 2, 
+                              mb: 1,
+                              '& li': {
+                                fontSize: '0.875rem',
+                                mb: 0.5,
+                                color: 'inherit'
+                              }
+                            },
+                            '& strong': { 
+                              fontWeight: 'bold', 
+                              color: 'inherit' 
+                            },
+                            '& em': { 
+                              fontStyle: 'italic', 
+                              color: 'inherit' 
+                            },
+                            '& code': {
+                              backgroundColor: 'rgba(255,255,255,0.1)',
+                              padding: '2px 4px',
+                              borderRadius: '3px',
+                              fontSize: '0.8rem',
+                              fontFamily: 'monospace'
+                            }
+                          }}>
+                            <ReactMarkdown 
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                h2: ({children}) => <Typography variant="h6" component="h2">{children}</Typography>,
+                                h3: ({children}) => <Typography variant="subtitle1" component="h3">{children}</Typography>,
+                                p: ({children}) => <Typography variant="body2" component="p">{children}</Typography>,
+                                ul: ({children}) => <Box component="ul">{children}</Box>,
+                                ol: ({children}) => <Box component="ol">{children}</Box>,
+                                li: ({children}) => <Typography component="li" variant="body2">{children}</Typography>,
+                                strong: ({children}) => <Typography component="span" sx={{ fontWeight: 'bold' }}>{children}</Typography>,
+                                em: ({children}) => <Typography component="span" sx={{ fontStyle: 'italic' }}>{children}</Typography>,
+                                code: ({children}) => <Typography component="code" variant="body2">{children}</Typography>,
+                              }}
+                            >
+                              {message.text}
+                            </ReactMarkdown>
+                          </Box>
+                        ) : (
+                          <Typography variant="body2">
+                            {message.text}
+                          </Typography>
+                        )}
                         <Typography
                           variant="caption"
                           sx={{
@@ -378,7 +566,7 @@ const Chat = () => {
                 <IconButton
                   color="primary"
                   onClick={handleSendMessage}
-                  disabled={!newMessage.trim()}
+                  disabled={!newMessage.trim() || isLoading}
                   sx={{ 
                     backgroundColor: 'primary.main',
                     color: 'white',
@@ -390,13 +578,54 @@ const Chat = () => {
                     }
                   }}
                 >
-                  <SendIcon />
+                  {isLoading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
                 </IconButton>
               </motion.div>
             </Box>
           </Box>
         </Box>
       </Box>
+
+      {/* Product Name Dialog */}
+      <Dialog open={showProductDialog} onClose={() => setShowProductDialog(false)}>
+        <DialogTitle>
+          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AnalyticsIcon />
+            Set Product for Analysis
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            To provide more accurate analysis, please specify which product you'd like me to focus on.
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            placeholder="e.g., iPhone 15, Tesla Model 3, Nike Air Max..."
+            value={productName}
+            onChange={(e) => setProductName(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                setShowProductDialog(false);
+                handleQuickAction('Analyze Product');
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowProductDialog(false)}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            onClick={() => {
+              setShowProductDialog(false);
+              handleQuickAction('Analyze Product');
+            }}
+            disabled={!productName.trim()}
+          >
+            Analyze Product
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
