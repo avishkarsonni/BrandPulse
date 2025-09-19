@@ -9,30 +9,55 @@ import {
   CircularProgress,
   Alert,
   Chip,
+  Button,
 } from '@mui/material';
 import {
   TrendingUp,
   SentimentSatisfied,
   SentimentDissatisfied,
   SentimentNeutral,
+  PhoneAndroid,
+  Clear,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
+import { useProduct } from '../contexts/ProductContext';
 
 const Dashboard = () => {
+  const { selectedProduct, productData, clearProduct } = useProduct();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dashboardData, setDashboardData] = useState(null);
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [selectedProduct, productData]);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      // Use dummy data directly for now
-      console.log('Using dummy data for Dashboard');
-      setDashboardData(null); // This will trigger the dummy data fallback
+      if (selectedProduct && productData) {
+        // Use product-specific data
+        setDashboardData({
+          totalReviews: productData.sentiment_summary?.total_mentions || 0,
+          positivePercent: productData.sentiment_summary?.positive || 0,
+          negativePercent: productData.sentiment_summary?.negative || 0,
+          neutralPercent: productData.sentiment_summary?.neutral || 0,
+          todayReviews: Math.floor((productData.sentiment_summary?.total_mentions || 0) * 0.1),
+          weeklyGrowth: 12.5,
+          monthlyGrowth: 8.3,
+          avgResponseTime: '2.4 hours',
+          customerSatisfaction: 4.2,
+          topPositiveTopics: ['Camera Quality', 'Performance', 'Design'],
+          topNegativeTopics: ['Price', 'Battery Life', 'Availability'],
+          recentAlerts: [
+            { type: 'info', message: `Analysis for ${selectedProduct.name} completed`, time: 'Just now' },
+            { type: 'success', message: 'Positive sentiment trend detected', time: '1 hour ago' },
+          ],
+        });
+      } else {
+        // Use general dummy data
+        setDashboardData(null);
+      }
     } catch (err) {
       setError('Failed to load dashboard data');
       console.error('Dashboard data fetch error:', err);
@@ -124,9 +149,50 @@ const Dashboard = () => {
       variants={containerVariants}
     >
       <motion.div variants={itemVariants}>
-        <Typography variant="h4" gutterBottom>
-          Dashboard Overview
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h4" gutterBottom>
+            Dashboard Overview
+          </Typography>
+          {selectedProduct && (
+            <Button
+              variant="outlined"
+              startIcon={<Clear />}
+              onClick={clearProduct}
+              sx={{ ml: 2 }}
+            >
+              Clear Selection
+            </Button>
+          )}
+        </Box>
+        
+        {selectedProduct && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <Paper 
+              sx={{ 
+                p: 2, 
+                mb: 3, 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white'
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <PhoneAndroid sx={{ mr: 2, fontSize: 32 }} />
+                <Box>
+                  <Typography variant="h5" gutterBottom>
+                    Analyzing: {selectedProduct.name}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    {selectedProduct.brand} • {selectedProduct.category} • ${selectedProduct.price}
+                  </Typography>
+                </Box>
+              </Box>
+            </Paper>
+          </motion.div>
+        )}
       </motion.div>
       
       <Grid container spacing={3}>
@@ -148,12 +214,7 @@ const Dashboard = () => {
             >
               <CardContent>
                 <Box display="flex" alignItems="center">
-                  <motion.div
-                    animate={{ rotate: [0, 10, -10, 0] }}
-                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-                  >
-                    <SentimentSatisfied color="success" sx={{ mr: 2, fontSize: 40 }} />
-                  </motion.div>
+                  <SentimentSatisfied color="success" sx={{ mr: 2, fontSize: 40 }} />
                   <Box>
                     <Typography color="textSecondary" gutterBottom>
                       Positive
@@ -191,12 +252,7 @@ const Dashboard = () => {
             >
               <CardContent>
                 <Box display="flex" alignItems="center">
-                  <motion.div
-                    animate={{ rotate: [0, -10, 10, 0] }}
-                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 4 }}
-                  >
-                    <SentimentDissatisfied color="error" sx={{ mr: 2, fontSize: 40 }} />
-                  </motion.div>
+                  <SentimentDissatisfied color="error" sx={{ mr: 2, fontSize: 40 }} />
                   <Box>
                     <Typography color="textSecondary" gutterBottom>
                       Negative
@@ -234,12 +290,7 @@ const Dashboard = () => {
             >
               <CardContent>
                 <Box display="flex" alignItems="center">
-                  <motion.div
-                    animate={{ rotate: [0, 5, -5, 0] }}
-                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 5 }}
-                  >
-                    <SentimentNeutral color="warning" sx={{ mr: 2, fontSize: 40 }} />
-                  </motion.div>
+                  <SentimentNeutral color="warning" sx={{ mr: 2, fontSize: 40 }} />
                   <Box>
                     <Typography color="textSecondary" gutterBottom>
                       Neutral
@@ -277,12 +328,7 @@ const Dashboard = () => {
             >
               <CardContent>
                 <Box display="flex" alignItems="center">
-                  <motion.div
-                    animate={{ y: [0, -5, 0] }}
-                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
-                  >
-                    <TrendingUp color="primary" sx={{ mr: 2, fontSize: 40 }} />
-                  </motion.div>
+                  <TrendingUp color="primary" sx={{ mr: 2, fontSize: 40 }} />
                   <Box>
                     <Typography color="textSecondary" gutterBottom>
                       Total Reviews
@@ -321,14 +367,9 @@ const Dashboard = () => {
             >
               <CardContent>
                 <Box display="flex" alignItems="center">
-                  <motion.div
-                    animate={{ y: [0, -3, 0] }}
-                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
-                  >
-                    <Typography variant="h6" color="primary" sx={{ mr: 2 }}>
-                      📊
-                    </Typography>
-                  </motion.div>
+                  <Typography variant="h6" color="primary" sx={{ mr: 2 }}>
+                    📊
+                  </Typography>
                   <Box>
                     <Typography color="textSecondary" gutterBottom>
                       Today's Reviews
@@ -366,14 +407,9 @@ const Dashboard = () => {
             >
               <CardContent>
                 <Box display="flex" alignItems="center">
-                  <motion.div
-                    animate={{ rotate: [0, 5, -5, 0] }}
-                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
-                  >
-                    <Typography variant="h6" color="success.main" sx={{ mr: 2 }}>
-                      ⭐
-                    </Typography>
-                  </motion.div>
+                  <Typography variant="h6" color="success.main" sx={{ mr: 2 }}>
+                    ⭐
+                  </Typography>
                   <Box>
                     <Typography color="textSecondary" gutterBottom>
                       Satisfaction
@@ -411,14 +447,9 @@ const Dashboard = () => {
             >
               <CardContent>
                 <Box display="flex" alignItems="center">
-                  <motion.div
-                    animate={{ scale: [1, 1.1, 1] }}
-                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-                  >
-                    <Typography variant="h6" color="info.main" sx={{ mr: 2 }}>
-                      📈
-                    </Typography>
-                  </motion.div>
+                  <Typography variant="h6" color="info.main" sx={{ mr: 2 }}>
+                    📈
+                  </Typography>
                   <Box>
                     <Typography color="textSecondary" gutterBottom>
                       Weekly Growth
@@ -456,14 +487,9 @@ const Dashboard = () => {
             >
               <CardContent>
                 <Box display="flex" alignItems="center">
-                  <motion.div
-                    animate={{ x: [0, 3, 0] }}
-                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 4 }}
-                  >
-                    <Typography variant="h6" color="warning.main" sx={{ mr: 2 }}>
-                      ⏱️
-                    </Typography>
-                  </motion.div>
+                  <Typography variant="h6" color="warning.main" sx={{ mr: 2 }}>
+                    ⏱️
+                  </Typography>
                   <Box>
                     <Typography color="textSecondary" gutterBottom>
                       Avg Response

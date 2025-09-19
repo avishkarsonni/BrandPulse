@@ -18,10 +18,20 @@ import {
   Chip,
   CircularProgress,
   Alert,
+  TextField,
+  Autocomplete,
+  Button,
+  Card,
+  CardContent,
+  Divider,
 } from '@mui/material';
+import { Search as SearchIcon, PhoneAndroid, Clear } from '@mui/icons-material';
 import { motion } from 'framer-motion';
+import { apiService } from '../services/api';
+import { useProduct } from '../contexts/ProductContext';
 
 const Analytics = () => {
+  const { selectedProduct: contextProduct, clearProduct } = useProduct();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [analyticsData, setAnalyticsData] = useState(null);
@@ -29,6 +39,10 @@ const Analytics = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [timeRange, setTimeRange] = useState('7d');
   const [channel, setChannel] = useState('all');
+  const [productQuery, setProductQuery] = useState('');
+  const [productSuggestions, setProductSuggestions] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [productAnalytics, setProductAnalytics] = useState(null);
 
   const fetchAnalyticsData = useCallback(async () => {
     try {
@@ -43,6 +57,35 @@ const Analytics = () => {
       setLoading(false);
     }
   }, []);
+
+  const handleProductSearch = async (query) => {
+    if (query.length > 1) {
+      try {
+        const suggestions = await apiService.getProductSuggestions(query);
+        setProductSuggestions(suggestions.suggestions || []);
+      } catch (err) {
+        console.error('Product suggestions error:', err);
+      }
+    }
+  };
+
+  const handleProductSelect = async (productName) => {
+    try {
+      setLoading(true);
+      const searchResults = await apiService.searchProducts(productName);
+      if (searchResults.results && searchResults.results.length > 0) {
+        const product = searchResults.results[0];
+        setSelectedProduct(product);
+        const analytics = await apiService.getProductSentiment(product.id);
+        setProductAnalytics(analytics);
+      }
+    } catch (err) {
+      setError('Failed to load product analytics');
+      console.error('Product analytics error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchAnalyticsData();
@@ -147,9 +190,165 @@ const Analytics = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Detailed Analytics
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4" gutterBottom>
+          Detailed Analytics
+        </Typography>
+        {contextProduct && (
+          <Button
+            variant="outlined"
+            startIcon={<Clear />}
+            onClick={clearProduct}
+            sx={{ ml: 2 }}
+          >
+            Clear Selection
+          </Button>
+        )}
+      </Box>
+
+      {contextProduct && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Paper 
+            sx={{ 
+              p: 2, 
+              mb: 3, 
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white'
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <PhoneAndroid sx={{ mr: 2, fontSize: 32 }} />
+              <Box>
+                <Typography variant="h5" gutterBottom>
+                  Analyzing: {contextProduct.name}
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  {contextProduct.brand} • {contextProduct.category} • ${contextProduct.price}
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
+        </motion.div>
+      )}
+
+      {/* Product Search Section */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Product-Specific Analytics
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Search for a specific product to view its sentiment analysis across all platforms
+        </Typography>
+        
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Autocomplete
+            freeSolo
+            options={productSuggestions}
+            inputValue={productQuery}
+            onInputChange={(event, newInputValue) => {
+              setProductQuery(newInputValue);
+              handleProductSearch(newInputValue);
+            }}
+            onKeyPress={(event) => {
+              if (event.key === 'Enter' && productQuery) {
+                handleProductSelect(productQuery);
+              }
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Search for a product (e.g., iPhone, Nike shoes, Tesla...)"
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />,
+                }}
+              />
+            )}
+            sx={{ flexGrow: 1, maxWidth: 400 }}
+          />
+          <Button
+            variant="contained"
+            onClick={() => handleProductSelect(productQuery)}
+            disabled={!productQuery}
+          >
+            Search
+          </Button>
+        </Box>
+
+        {/* Product Analytics Results */}
+        {selectedProduct && productAnalytics && (
+          <Box sx={{ mt: 3 }}>
+            <Divider sx={{ mb: 2 }} />
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={8}>
+                <Typography variant="h6" gutterBottom>
+                  {selectedProduct.name} - Sentiment Analysis
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={4}>
+                    <Card>
+                      <CardContent sx={{ textAlign: 'center' }}>
+                        <Typography variant="h4" color="success.main">
+                          {productAnalytics.summary.positive_mentions}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Positive Mentions
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={4}>
+                    <Card>
+                      <CardContent sx={{ textAlign: 'center' }}>
+                        <Typography variant="h4" color="error.main">
+                          {productAnalytics.summary.negative_mentions}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Negative Mentions
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={4}>
+                    <Card>
+                      <CardContent sx={{ textAlign: 'center' }}>
+                        <Typography variant="h4" color="warning.main">
+                          {productAnalytics.summary.neutral_mentions}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Neutral Mentions
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                </Grid>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Typography variant="h6" gutterBottom>
+                  Platform Breakdown
+                </Typography>
+                {productAnalytics.channels.map((channel) => (
+                  <Box key={channel.channel} sx={{ mb: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2">{channel.channel}</Typography>
+                      <Typography variant="body2">{channel.total} mentions</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', height: 8, borderRadius: 1, overflow: 'hidden', mt: 0.5 }}>
+                      <Box sx={{ width: `${channel.positive}%`, backgroundColor: 'success.main' }} />
+                      <Box sx={{ width: `${channel.negative}%`, backgroundColor: 'error.main' }} />
+                      <Box sx={{ width: `${channel.neutral}%`, backgroundColor: 'warning.main' }} />
+                    </Box>
+                  </Box>
+                ))}
+              </Grid>
+            </Grid>
+          </Box>
+        )}
+      </Paper>
 
       {/* Filters */}
       <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
