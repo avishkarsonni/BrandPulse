@@ -1,5 +1,5 @@
 -- Additional seed data for BrandPulse database
--- This file contains sample data to populate the database for testing
+-- MySQL version - This file contains sample data to populate the database for testing
 
 -- Insert additional sample products
 INSERT INTO products (name, sku, description, category, brand, price, url, image_url) VALUES
@@ -31,17 +31,16 @@ INSERT INTO sentiment_analysis (product_id, page_id, text, sentiment, score, con
 (9, 14, 'Adidas Ultraboost 22 comfort is unmatched for long runs.', 'positive', 0.88, 0.93, 'reviews', '["comfort", "running"]', '["unmatched", "long runs"]'),
 (10, 15, 'iPad Pro M2 performance is blazing fast for creative work.', 'positive', 0.91, 0.95, 'reviews', '["performance", "creative"]', '["blazing fast", "creative work"]');
 
--- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_sentiment_created_at ON sentiment_analysis(created_at);
-CREATE INDEX IF NOT EXISTS idx_products_created_at ON products(created_at);
-CREATE INDEX IF NOT EXISTS idx_product_pages_created_at ON product_pages(created_at);
+-- Create additional indexes for better performance
+CREATE INDEX idx_sentiment_created_at ON sentiment_analysis(created_at);
+CREATE INDEX idx_products_created_at ON products(created_at);
+CREATE INDEX idx_product_pages_created_at ON product_pages(created_at);
 
 -- Update search index for new products
-INSERT INTO product_search_index (product_id, search_text, search_vector)
+INSERT INTO product_search_index (product_id, search_text)
 SELECT 
     id,
-    name || ' ' || COALESCE(description, '') || ' ' || COALESCE(category, '') || ' ' || COALESCE(brand, ''),
-    to_tsvector('english', name || ' ' || COALESCE(description, '') || ' ' || COALESCE(category, '') || ' ' || COALESCE(brand, ''))
+    CONCAT_WS(' ', name, COALESCE(description, ''), COALESCE(category, ''), COALESCE(brand, ''))
 FROM products 
 WHERE id > 5;
 
@@ -49,13 +48,12 @@ WHERE id > 5;
 INSERT INTO product_analytics (product_id, date, total_mentions, positive_mentions, negative_mentions, neutral_mentions, avg_sentiment_score)
 SELECT 
     product_id,
-    CURRENT_DATE,
+    CURDATE(),
     COUNT(*),
-    COUNT(*) FILTER (WHERE sentiment = 'positive'),
-    COUNT(*) FILTER (WHERE sentiment = 'negative'),
-    COUNT(*) FILTER (WHERE sentiment = 'neutral'),
+    SUM(CASE WHEN sentiment = 'positive' THEN 1 ELSE 0 END),
+    SUM(CASE WHEN sentiment = 'negative' THEN 1 ELSE 0 END),
+    SUM(CASE WHEN sentiment = 'neutral' THEN 1 ELSE 0 END),
     AVG(score)
 FROM sentiment_analysis 
 WHERE product_id > 5
 GROUP BY product_id;
-

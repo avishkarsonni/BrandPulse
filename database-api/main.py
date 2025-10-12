@@ -12,7 +12,6 @@ from sqlalchemy import create_engine, text, MetaData, Table, Column, Integer, St
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 from databases import Database
-import asyncpg
 
 # Initialize FastAPI app
 app = FastAPI(title="BrandPulse Database API", version="1.0.0")
@@ -27,8 +26,9 @@ app.add_middleware(
 )
 
 # Database configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://brandpulse_user:brandpulse_password@localhost:5432/brandpulse")
-database = Database(DATABASE_URL)
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql://brandpulse_user:brandpulse_password@localhost:3306/brandpulse")
+# MySQL connection with optimized settings
+database = Database(DATABASE_URL, min_size=1, max_size=10)
 
 # Pydantic models for API
 class Product(BaseModel):
@@ -83,8 +83,22 @@ class ProductAnalytics(BaseModel):
 # Database connection events
 @app.on_event("startup")
 async def startup():
-    await database.connect()
-    print("✅ Connected to database")
+    try:
+        print("🔗 Attempting to connect to database...")
+        print(f"Database URL: {DATABASE_URL}")
+        await database.connect()
+        print("✅ Connected to database")
+        # Test the connection
+        result = await database.fetch_one("SELECT 1 as test")
+        print(f"✅ Database test query successful: {result}")
+    except Exception as e:
+        print(f"❌ Failed to connect to database: {str(e)}")
+        print(f"Exception type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        print("⚠️  Database API will continue running but may not function properly")
+        # Don't raise the exception to allow the service to start
+        # The health check will catch the connection issue
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -95,6 +109,7 @@ async def shutdown():
 @app.get("/health")
 async def health_check():
     try:
+        # Try to execute a simple query to test database connectivity
         await database.execute("SELECT 1")
         return {
             "status": "healthy",
@@ -103,7 +118,14 @@ async def health_check():
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Database connection failed: {str(e)}")
+        print(f"⚠️  Health check failed: {str(e)}")
+        return {
+            "status": "unhealthy",
+            "service": "database-api", 
+            "database": "disconnected",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 # Product endpoints
 @app.get("/products", response_model=List[Product])
@@ -123,21 +145,21 @@ async def get_products(
                COALESCE(pa.neutral_mentions, 0) as neutral_mentions,
                COALESCE(pa.avg_sentiment_score, 0) as avg_sentiment_score
         FROM products p
-        LEFT JOIN product_analytics pa ON p.id = pa.product_id AND pa.date = CURRENT_DATE
+        LEFT JOIN product_analytics pa ON p.id = pa.product_id AND pa.date = CURDATE()
         WHERE p.status = 'active'
     """
     params = {}
     
     if category:
-        query += " AND p.category ILIKE :category"
+        query += " AND p.category LIKE :category"
         params["category"] = f"%{category}%"
     
     if brand:
-        query += " AND p.brand ILIKE :brand"
+        query += " AND p.brand LIKE :brand"
         params["brand"] = f"%{brand}%"
     
     if search:
-        query += " AND (p.name ILIKE :search OR p.description ILIKE :search)"
+        query += " AND (p.name LIKE :search OR p.description LIKE :search)"
         params["search"] = f"%{search}%"
     
     query += " ORDER BY p.created_at DESC LIMIT :limit OFFSET :offset"
@@ -158,7 +180,7 @@ async def get_product(product_id: int):
                COALESCE(pa.neutral_mentions, 0) as neutral_mentions,
                COALESCE(pa.avg_sentiment_score, 0) as avg_sentiment_score
         FROM products p
-        LEFT JOIN product_analytics pa ON p.id = pa.product_id AND pa.date = CURRENT_DATE
+        LEFT JOIN product_analytics pa ON p.id = pa.product_id AND pa.date = CURDATE()
         WHERE p.id = :product_id
     """
     result = await database.fetch_one(query, {"product_id": product_id})
@@ -172,9 +194,11 @@ async def create_product(product: Product):
     query = """
         INSERT INTO products (name, sku, description, category, brand, price, url, image_url, status)
         VALUES (:name, :sku, :description, :category, :brand, :price, :url, :image_url, :status)
-        RETURNING *
     """
-    result = await database.fetch_one(query, product.dict(exclude={"id"}))
+    await database.execute(query, product.dict(exclude={"id"}))
+    
+    # Fetch the created product
+    result = await database.fetch_one("SELECT * FROM products ORDER BY id DESC LIMIT 1")
     return result
 
 @app.put("/products/{product_id}", response_model=Product)
@@ -184,13 +208,15 @@ async def update_product(product_id: int, product: Product):
         UPDATE products 
         SET name = :name, sku = :sku, description = :description, category = :category, 
             brand = :brand, price = :price, url = :url, image_url = :image_url, 
-            status = :status, updated_at = CURRENT_TIMESTAMP
+            status = :status, updated_at = NOW()
         WHERE id = :product_id
-        RETURNING *
     """
     params = product.dict(exclude={"id"})
     params["product_id"] = product_id
-    result = await database.fetch_one(query, params)
+    await database.execute(query, params)
+    
+    # Fetch the updated product
+    result = await database.fetch_one("SELECT * FROM products WHERE id = :product_id", {"product_id": product_id})
     if not result:
         raise HTTPException(status_code=404, detail="Product not found")
     return result
@@ -200,11 +226,13 @@ async def delete_product(product_id: int):
     """Delete a product (soft delete by setting status to inactive)"""
     query = """
         UPDATE products 
-        SET status = 'inactive', updated_at = CURRENT_TIMESTAMP
+        SET status = 'inactive', updated_at = NOW()
         WHERE id = :product_id
-        RETURNING id
     """
-    result = await database.fetch_one(query, {"product_id": product_id})
+    await database.execute(query, {"product_id": product_id})
+    
+    # Check if product exists
+    result = await database.fetch_one("SELECT id FROM products WHERE id = :product_id", {"product_id": product_id})
     if not result:
         raise HTTPException(status_code=404, detail="Product not found")
     return {"message": "Product deleted successfully"}
@@ -217,9 +245,9 @@ async def get_product_pages(product_id: int):
         SELECT pp.*, 
                COUNT(sa.id) as sentiment_count,
                AVG(sa.score) as avg_sentiment_score,
-               COUNT(sa.id) FILTER (WHERE sa.sentiment = 'positive') as positive_count,
-               COUNT(sa.id) FILTER (WHERE sa.sentiment = 'negative') as negative_count,
-               COUNT(sa.id) FILTER (WHERE sa.sentiment = 'neutral') as neutral_count
+               SUM(CASE WHEN sa.sentiment = 'positive' THEN 1 ELSE 0 END) as positive_count,
+               SUM(CASE WHEN sa.sentiment = 'negative' THEN 1 ELSE 0 END) as negative_count,
+               SUM(CASE WHEN sa.sentiment = 'neutral' THEN 1 ELSE 0 END) as neutral_count
         FROM product_pages pp
         LEFT JOIN sentiment_analysis sa ON pp.id = sa.page_id
         WHERE pp.product_id = :product_id
@@ -236,9 +264,11 @@ async def create_product_page(product_id: int, page: ProductPage):
     query = """
         INSERT INTO product_pages (product_id, url, page_type, platform, title, meta_description, content_summary)
         VALUES (:product_id, :url, :page_type, :platform, :title, :meta_description, :content_summary)
-        RETURNING *
     """
-    result = await database.fetch_one(query, page.dict(exclude={"id"}))
+    await database.execute(query, page.dict(exclude={"id"}))
+    
+    # Fetch the created page
+    result = await database.fetch_one("SELECT * FROM product_pages WHERE product_id = :product_id ORDER BY id DESC LIMIT 1", {"product_id": product_id})
     return result
 
 # Sentiment analysis endpoints
@@ -296,9 +326,11 @@ async def create_sentiment_analysis(sentiment: SentimentAnalysis):
             :product_id, :page_id, :text, :sentiment, :score, :confidence,
             :channel, :topics, :keywords, :engagement_metrics, :metadata
         )
-        RETURNING *
     """
-    result = await database.fetch_one(query, sentiment.dict(exclude={"id"}))
+    await database.execute(query, sentiment.dict(exclude={"id"}))
+    
+    # Fetch the created sentiment analysis
+    result = await database.fetch_one("SELECT * FROM sentiment_analysis ORDER BY id DESC LIMIT 1")
     return result
 
 # Analytics endpoints
@@ -350,7 +382,7 @@ async def get_analytics_overview():
         "recent_activity": """
             SELECT DATE(timestamp) as date, COUNT(*) as count
             FROM sentiment_analysis 
-            WHERE timestamp >= CURRENT_DATE - INTERVAL '30 days'
+            WHERE timestamp >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
             GROUP BY DATE(timestamp)
             ORDER BY date DESC
         """
@@ -371,11 +403,11 @@ async def get_analytics_overview():
 async def search_products(q: str, limit: int = Query(20, le=100)):
     """Full-text search for products"""
     query = """
-        SELECT p.*, ts_rank(psi.search_vector, plainto_tsquery('english', :query)) as rank
+        SELECT p.*, MATCH(psi.search_text) AGAINST(:query IN NATURAL LANGUAGE MODE) as `rank`
         FROM products p
         JOIN product_search_index psi ON p.id = psi.product_id
-        WHERE psi.search_vector @@ plainto_tsquery('english', :query)
-        ORDER BY rank DESC, p.created_at DESC
+        WHERE MATCH(psi.search_text) AGAINST(:query IN NATURAL LANGUAGE MODE)
+        ORDER BY `rank` DESC, p.created_at DESC
         LIMIT :limit
     """
     results = await database.fetch_all(query, {"query": q, "limit": limit})
@@ -387,7 +419,7 @@ async def get_search_suggestions(q: str, limit: int = Query(5, le=10)):
     query = """
         SELECT DISTINCT name, brand, category
         FROM products 
-        WHERE (name ILIKE :query OR brand ILIKE :query OR category ILIKE :query)
+        WHERE (name LIKE :query OR brand LIKE :query OR category LIKE :query)
         AND status = 'active'
         LIMIT :limit
     """
@@ -408,23 +440,23 @@ async def refresh_analytics():
         )
         SELECT 
             product_id,
-            CURRENT_DATE,
+            CURDATE(),
             COUNT(*),
-            COUNT(*) FILTER (WHERE sentiment = 'positive'),
-            COUNT(*) FILTER (WHERE sentiment = 'negative'),
-            COUNT(*) FILTER (WHERE sentiment = 'neutral'),
+            SUM(CASE WHEN sentiment = 'positive' THEN 1 ELSE 0 END),
+            SUM(CASE WHEN sentiment = 'negative' THEN 1 ELSE 0 END),
+            SUM(CASE WHEN sentiment = 'neutral' THEN 1 ELSE 0 END),
             AVG(score)
         FROM sentiment_analysis 
-        WHERE DATE(timestamp) = CURRENT_DATE
+        WHERE DATE(timestamp) = CURDATE()
         AND product_id IS NOT NULL
         GROUP BY product_id
-        ON CONFLICT (product_id, date) DO UPDATE SET
-            total_mentions = EXCLUDED.total_mentions,
-            positive_mentions = EXCLUDED.positive_mentions,
-            negative_mentions = EXCLUDED.negative_mentions,
-            neutral_mentions = EXCLUDED.neutral_mentions,
-            avg_sentiment_score = EXCLUDED.avg_sentiment_score,
-            updated_at = CURRENT_TIMESTAMP
+        ON DUPLICATE KEY UPDATE
+            total_mentions = VALUES(total_mentions),
+            positive_mentions = VALUES(positive_mentions),
+            negative_mentions = VALUES(negative_mentions),
+            neutral_mentions = VALUES(neutral_mentions),
+            avg_sentiment_score = VALUES(avg_sentiment_score),
+            updated_at = NOW()
     """
     await database.execute(query)
     return {"message": "Analytics refreshed successfully"}

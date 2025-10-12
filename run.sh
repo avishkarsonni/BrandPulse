@@ -140,12 +140,12 @@ detect_installation_type() {
 test_database_connectivity() {
     print_status "Testing database connectivity..."
     
-    # Wait for database to be ready
-    local max_attempts=30
+    # Wait for MySQL database to be ready (faster with optimized settings)
+    local max_attempts=15
     local attempt=1
     
     while [ $attempt -le $max_attempts ]; do
-        if docker compose exec -T database pg_isready -U brandpulse_user -d brandpulse > /dev/null 2>&1; then
+        if docker compose exec -T database mysqladmin ping -h localhost -u brandpulse_user -pbrandpulse_password > /dev/null 2>&1; then
             print_success "Database is ready"
             break
         fi
@@ -156,12 +156,12 @@ test_database_connectivity() {
         fi
         
         print_status "Waiting for database... (attempt $attempt/$max_attempts)"
-        sleep 2
+        sleep 1
         attempt=$((attempt + 1))
     done
     
-    # Test database API connectivity
-    local db_api_attempts=15
+    # Test database API connectivity (reduced wait time)
+    local db_api_attempts=10
     local db_api_attempt=1
     
     while [ $db_api_attempt -le $db_api_attempts ]; do
@@ -176,7 +176,7 @@ test_database_connectivity() {
         fi
         
         print_status "Waiting for database API... (attempt $db_api_attempt/$db_api_attempts)"
-        sleep 2
+        sleep 1
         db_api_attempt=$((db_api_attempt + 1))
     done
 }
@@ -213,11 +213,11 @@ GOOGLE_API_KEY=AIzaSyDummy_Key_Replace_With_Real_One
 GOOGLE_APPLICATION_CREDENTIALS=/app/service_account.json
 
 # Database Configuration
-DATABASE_URL=postgresql://brandpulse_user:brandpulse_password@database:5432/brandpulse
-POSTGRES_DB=brandpulse
-POSTGRES_USER=brandpulse_user
-POSTGRES_PASSWORD=brandpulse_password
-POSTGRES_HOST_AUTH_METHOD=md5
+DATABASE_URL=mysql://brandpulse_user:brandpulse_password@database:3306/brandpulse
+MYSQL_DATABASE=brandpulse
+MYSQL_USER=brandpulse_user
+MYSQL_PASSWORD=brandpulse_password
+MYSQL_ROOT_PASSWORD=root_password
 
 # Frontend Configuration
 REACT_APP_API_URL=http://localhost:8000
@@ -302,18 +302,22 @@ detect_installation_type() {
 
 # Function to build images intelligently
 build_images() {
-    print_status "Building Docker images..."
+    print_status "Building Docker images with optimizations..."
+    
+    # Enable Docker BuildKit for faster builds
+    export DOCKER_BUILDKIT=1
+    export COMPOSE_DOCKER_CLI_BUILD=1
     
     if [ "$INSTALLATION_TYPE" = "fresh" ]; then
         print_status "Fresh installation: Building all images from scratch..."
-        $COMPOSE_CMD build --no-cache
+        $COMPOSE_CMD build --no-cache --parallel
     else
         print_status "Update installation: Rebuilding only changed images..."
-        # Pull latest base images first
-        $COMPOSE_CMD pull --ignore-buildable || true
+        # Pull latest base images first (in parallel)
+        $COMPOSE_CMD pull --ignore-buildable --parallel || true
         
-        # Build with cache for faster updates
-        $COMPOSE_CMD build
+        # Build with cache for faster updates (parallel builds)
+        $COMPOSE_CMD build --parallel
         
         # Clean up unused images to save space
         docker image prune -f >/dev/null 2>&1 || true
@@ -329,40 +333,32 @@ build_images() {
 
 # Function to start services
 start_services() {
-    print_status "Starting BrandPulse services..."
+    print_status "Starting BrandPulse services with optimized startup..."
     
-    # Start database first
+    # Start database first (with optimized MySQL settings)
     print_status "Starting database..."
     $COMPOSE_CMD up -d database
     
-    # Wait for database to be ready with better testing
+    # Wait for database to be ready with faster testing
     test_database_connectivity
     if [ $? -ne 0 ]; then
         print_error "Failed to start database properly"
         exit 1
     fi
     
-    # Start database API
-    print_status "Starting database API..."
-    $COMPOSE_CMD up -d database-api
+    # Start database API and backend in parallel (they don't depend on each other)
+    print_status "Starting database API and backend in parallel..."
+    $COMPOSE_CMD up -d database-api backend
     
-    # Wait for database API to be ready
-    sleep 5
+    # Wait for services to be ready (reduced wait time)
+    sleep 3
     
-    # Start backend
-    print_status "Starting backend..."
-    $COMPOSE_CMD up -d backend
+    # Start remaining services
+    print_status "Starting remaining services..."
+    $COMPOSE_CMD up -d frontend redis
     
-    # Wait for backend to be ready
-    sleep 5
-    
-    # Start frontend
-    print_status "Starting frontend..."
-    $COMPOSE_CMD up -d frontend
-    
-    # Start optional services
-    print_status "Starting Redis cache..."
-    $COMPOSE_CMD up -d redis
+    # Wait for services to be ready
+    sleep 3
     
     print_success "All services started successfully!"
     
@@ -384,7 +380,7 @@ show_status() {
     echo "  🗄️  Database API: http://localhost:8001"
     echo "  📊 API Docs:     http://localhost:8000/docs"
     echo "  🔍 DB API Docs:  http://localhost:8001/docs"
-    echo "  🗃️  Database:     localhost:5432"
+    echo "  🗃️  Database:     localhost:3307"
     echo "  ⚡ Redis:        localhost:6379"
 }
 
@@ -514,7 +510,7 @@ main() {
             echo "  🌐 Frontend:     http://localhost:3000"
             echo "  🚀 Backend API:  http://localhost:8000/docs"
             echo "  🗄️  Database API: http://localhost:8001/docs"
-            echo "  🗃️  Database:     localhost:5433 (PostgreSQL)"
+            echo "  🗃️  Database:     localhost:3307 (MySQL)"
             echo ""
             print_status "📋 Management commands:"
             echo "  $0 logs      # View all logs"

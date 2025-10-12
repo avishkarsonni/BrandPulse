@@ -1,9 +1,9 @@
 -- Database Schema for BrandPulse Product Search and Analytics
--- This schema supports product search with related pages and sentiment analysis
+-- MySQL version - This schema supports product search with related pages and sentiment analysis
 
 -- Products table - Main product catalog
 CREATE TABLE products (
-    id SERIAL PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     sku VARCHAR(100) UNIQUE NOT NULL,
     description TEXT,
@@ -14,30 +14,31 @@ CREATE TABLE products (
     image_url VARCHAR(500),
     status VARCHAR(20) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Product pages - All pages/URLs related to a product (product pages, review pages, social media posts, etc.)
+-- Product pages - All pages/URLs related to a product
 CREATE TABLE product_pages (
-    id SERIAL PRIMARY KEY,
-    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
     url VARCHAR(1000) NOT NULL,
     page_type VARCHAR(50) NOT NULL, -- 'product_page', 'review_page', 'social_media', 'blog_post', 'news_article'
     platform VARCHAR(50), -- 'amazon', 'website', 'twitter', 'facebook', 'instagram', 'youtube', 'blog'
     title VARCHAR(500),
     meta_description TEXT,
     content_summary TEXT,
-    last_crawled TIMESTAMP,
+    last_crawled TIMESTAMP NULL,
     status VARCHAR(20) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
 -- Enhanced sentiment analysis table with product relations
 CREATE TABLE sentiment_analysis (
-    id SERIAL PRIMARY KEY,
-    product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
-    page_id INTEGER REFERENCES product_pages(id) ON DELETE SET NULL,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NULL,
+    page_id INT NULL,
     text TEXT NOT NULL,
     sentiment VARCHAR(20) NOT NULL CHECK (sentiment IN ('positive', 'negative', 'neutral')),
     score FLOAT NOT NULL CHECK (score >= -1 AND score <= 1),
@@ -46,55 +47,58 @@ CREATE TABLE sentiment_analysis (
     platform_specific_id VARCHAR(255), -- External ID from the platform
     user_id VARCHAR(100),
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    topics JSONB, -- Array of topics detected
-    keywords JSONB, -- Array of keywords extracted
-    engagement_metrics JSONB, -- likes, shares, comments, views
-    metadata JSONB, -- Additional platform-specific data
+    topics JSON, -- Array of topics detected
+    keywords JSON, -- Array of keywords extracted
+    engagement_metrics JSON, -- likes, shares, comments, views
+    metadata JSON, -- Additional platform-specific data
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL,
+    FOREIGN KEY (page_id) REFERENCES product_pages(id) ON DELETE SET NULL
 );
 
 -- Product search index table for fast text search
 CREATE TABLE product_search_index (
-    id SERIAL PRIMARY KEY,
-    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
     search_text TEXT NOT NULL, -- Concatenated searchable text
-    search_vector TSVECTOR, -- PostgreSQL full-text search vector
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
 -- Product analytics aggregations for performance
 CREATE TABLE product_analytics (
-    id SERIAL PRIMARY KEY,
-    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
     date DATE NOT NULL,
-    total_mentions INTEGER DEFAULT 0,
-    positive_mentions INTEGER DEFAULT 0,
-    negative_mentions INTEGER DEFAULT 0,
-    neutral_mentions INTEGER DEFAULT 0,
+    total_mentions INT DEFAULT 0,
+    positive_mentions INT DEFAULT 0,
+    negative_mentions INT DEFAULT 0,
+    neutral_mentions INT DEFAULT 0,
     avg_sentiment_score FLOAT DEFAULT 0,
-    total_engagement INTEGER DEFAULT 0,
-    channel_breakdown JSONB, -- Breakdown by platform/channel
-    topic_breakdown JSONB, -- Breakdown by topics
+    total_engagement INT DEFAULT 0,
+    channel_breakdown JSON, -- Breakdown by platform/channel
+    topic_breakdown JSON, -- Breakdown by topics
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(product_id, date)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_product_date (product_id, date),
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
 -- Search queries log for analytics
 CREATE TABLE search_queries (
-    id SERIAL PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     query_text VARCHAR(500) NOT NULL,
-    results_count INTEGER DEFAULT 0,
+    results_count INT DEFAULT 0,
     user_session VARCHAR(100),
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    execution_time_ms INTEGER,
-    filters_applied JSONB
+    execution_time_ms INT,
+    filters_applied JSON
 );
 
 -- Indexes for performance optimization
-CREATE INDEX idx_products_name ON products USING GIN (to_tsvector('english', name));
+CREATE FULLTEXT INDEX idx_products_name_fulltext ON products(name(100));
 CREATE INDEX idx_products_sku ON products(sku);
 CREATE INDEX idx_products_category ON products(category);
 CREATE INDEX idx_products_brand ON products(brand);
@@ -103,19 +107,16 @@ CREATE INDEX idx_products_status ON products(status);
 CREATE INDEX idx_product_pages_product_id ON product_pages(product_id);
 CREATE INDEX idx_product_pages_type ON product_pages(page_type);
 CREATE INDEX idx_product_pages_platform ON product_pages(platform);
-CREATE INDEX idx_product_pages_url ON product_pages(url);
+CREATE INDEX idx_product_pages_url ON product_pages(url(100));
 
 CREATE INDEX idx_sentiment_product_id ON sentiment_analysis(product_id);
 CREATE INDEX idx_sentiment_page_id ON sentiment_analysis(page_id);
 CREATE INDEX idx_sentiment_timestamp ON sentiment_analysis(timestamp);
 CREATE INDEX idx_sentiment_channel ON sentiment_analysis(channel);
 CREATE INDEX idx_sentiment_score ON sentiment_analysis(sentiment, score);
-CREATE INDEX idx_sentiment_topics ON sentiment_analysis USING GIN (topics);
-CREATE INDEX idx_sentiment_keywords ON sentiment_analysis USING GIN (keywords);
 
 CREATE INDEX idx_search_index_product_id ON product_search_index(product_id);
-CREATE INDEX idx_search_index_vector ON product_search_index USING GIN (search_vector);
-CREATE INDEX idx_search_index_text ON product_search_index USING GIN (to_tsvector('english', search_text));
+CREATE FULLTEXT INDEX idx_search_index_text_fulltext ON product_search_index(search_text(100));
 
 CREATE INDEX idx_analytics_product_date ON product_analytics(product_id, date);
 CREATE INDEX idx_analytics_date ON product_analytics(date);
@@ -124,74 +125,28 @@ CREATE INDEX idx_search_queries_text ON search_queries(query_text);
 CREATE INDEX idx_search_queries_timestamp ON search_queries(timestamp);
 
 -- Triggers to update search index when products are modified
-CREATE OR REPLACE FUNCTION update_product_search_index()
-RETURNS TRIGGER AS $$
+DELIMITER //
+CREATE TRIGGER update_product_search_index_insert
+    AFTER INSERT ON products
+    FOR EACH ROW
 BEGIN
-    -- Update or insert search index
-    INSERT INTO product_search_index (product_id, search_text, search_vector)
+    INSERT INTO product_search_index (product_id, search_text)
     VALUES (
         NEW.id,
-        NEW.name || ' ' || COALESCE(NEW.description, '') || ' ' || COALESCE(NEW.category, '') || ' ' || COALESCE(NEW.brand, ''),
-        to_tsvector('english', NEW.name || ' ' || COALESCE(NEW.description, '') || ' ' || COALESCE(NEW.category, '') || ' ' || COALESCE(NEW.brand, ''))
-    )
-    ON CONFLICT (product_id) 
-    DO UPDATE SET
-        search_text = EXCLUDED.search_text,
-        search_vector = EXCLUDED.search_vector,
-        updated_at = CURRENT_TIMESTAMP;
-    
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+        CONCAT_WS(' ', NEW.name, COALESCE(NEW.description, ''), COALESCE(NEW.category, ''), COALESCE(NEW.brand, ''))
+    );
+END//
 
-CREATE TRIGGER trigger_update_product_search_index
-    AFTER INSERT OR UPDATE ON products
+CREATE TRIGGER update_product_search_index_update
+    AFTER UPDATE ON products
     FOR EACH ROW
-    EXECUTE FUNCTION update_product_search_index();
-
--- Function to update product analytics
-CREATE OR REPLACE FUNCTION update_product_analytics()
-RETURNS TRIGGER AS $$
 BEGIN
-    -- Update daily analytics for the product
-    INSERT INTO product_analytics (
-        product_id, 
-        date, 
-        total_mentions, 
-        positive_mentions, 
-        negative_mentions, 
-        neutral_mentions,
-        avg_sentiment_score
-    )
-    SELECT 
-        NEW.product_id,
-        DATE(NEW.timestamp),
-        COUNT(*),
-        COUNT(*) FILTER (WHERE sentiment = 'positive'),
-        COUNT(*) FILTER (WHERE sentiment = 'negative'),
-        COUNT(*) FILTER (WHERE sentiment = 'neutral'),
-        AVG(score)
-    FROM sentiment_analysis 
-    WHERE product_id = NEW.product_id 
-    AND DATE(timestamp) = DATE(NEW.timestamp)
-    ON CONFLICT (product_id, date)
-    DO UPDATE SET
-        total_mentions = EXCLUDED.total_mentions,
-        positive_mentions = EXCLUDED.positive_mentions,
-        negative_mentions = EXCLUDED.negative_mentions,
-        neutral_mentions = EXCLUDED.neutral_mentions,
-        avg_sentiment_score = EXCLUDED.avg_sentiment_score,
-        updated_at = CURRENT_TIMESTAMP;
-    
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+    UPDATE product_search_index 
+    SET search_text = CONCAT_WS(' ', NEW.name, COALESCE(NEW.description, ''), COALESCE(NEW.category, ''), COALESCE(NEW.brand, ''))
+    WHERE product_id = NEW.id;
+END//
 
-CREATE TRIGGER trigger_update_product_analytics
-    AFTER INSERT OR UPDATE ON sentiment_analysis
-    FOR EACH ROW
-    WHEN (NEW.product_id IS NOT NULL)
-    EXECUTE FUNCTION update_product_analytics();
+DELIMITER ;
 
 -- Sample data for testing
 INSERT INTO products (name, sku, description, category, brand, price, url) VALUES

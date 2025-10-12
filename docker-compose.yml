@@ -1,31 +1,30 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
+  # MySQL Database
   database:
-    build:
-      context: ./database
-      dockerfile: Dockerfile
+    image: mysql:8.0
     container_name: brandpulse-database
     environment:
-      - POSTGRES_DB=brandpulse
-      - POSTGRES_USER=brandpulse_user
-      - POSTGRES_PASSWORD=brandpulse_password
-      - POSTGRES_HOST_AUTH_METHOD=md5
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=brandpulse
+      - MYSQL_USER=brandpulse_user
+      - MYSQL_PASSWORD=brandpulse_password
     ports:
-      - "5433:5432"
+      - "3307:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./database/seed_data.sql:/docker-entrypoint-initdb.d/02-seed_data.sql:ro
     networks:
       - brandpulse-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U brandpulse_user -d brandpulse"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "brandpulse_user", "-pbrandpulse_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    command: --default-authentication-plugin=mysql_native_password --innodb-buffer-pool-size=256M --innodb-log-file-size=64M --innodb-flush-log-at-trx-commit=2 --innodb-flush-method=O_DIRECT
 
   # FastAPI Backend
   backend:
@@ -34,7 +33,7 @@ services:
       dockerfile: Dockerfile
     container_name: brandpulse-backend
     environment:
-      - DATABASE_URL=postgresql://brandpulse_user:brandpulse_password@database:5432/brandpulse
+      - DATABASE_URL=mysql://brandpulse_user:brandpulse_password@database:3306/brandpulse
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - GOOGLE_APPLICATION_CREDENTIALS=/app/service_account.json
       - CORS_ORIGINS=http://localhost:3000,http://localhost:80,http://frontend:80
@@ -87,7 +86,7 @@ services:
       dockerfile: Dockerfile
     container_name: brandpulse-database-api
     environment:
-      - DATABASE_URL=postgresql://brandpulse_user:brandpulse_password@database:5432/brandpulse
+      - DATABASE_URL=mysql://brandpulse_user:brandpulse_password@database:3306/brandpulse
       - API_PORT=8001
       - LOG_LEVEL=info
     ports:
@@ -142,7 +141,7 @@ services:
       - production
 
 volumes:
-  postgres_data:
+  mysql_data:
     driver: local
   redis_data:
     driver: local

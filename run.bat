@@ -51,7 +51,7 @@ if not exist .env (
         (
             echo # BrandPulse Environment Configuration
             echo GOOGLE_API_KEY=your_google_api_key_here
-            echo DATABASE_URL=postgresql://brandpulse_user:brandpulse_password@database:5432/brandpulse
+            echo DATABASE_URL=mysql://brandpulse_user:brandpulse_password@database:3306/brandpulse
             echo POSTGRES_DB=brandpulse
             echo POSTGRES_USER=brandpulse_user
             echo POSTGRES_PASSWORD=brandpulse_password
@@ -150,7 +150,7 @@ echo   🚀 Backend API:  http://localhost:8000
 echo   🗄️  Database API: http://localhost:8001
 echo   📊 API Docs:     http://localhost:8000/docs
 echo   🔍 DB API Docs:  http://localhost:8001/docs
-echo   🗃️  Database:     localhost:5432
+echo   🗃️  Database:     localhost:3307
 echo   ⚡ Redis:        localhost:6379
 goto end
 
