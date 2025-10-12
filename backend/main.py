@@ -43,6 +43,8 @@ def setup_google_auth():
     if service_account_path.exists():
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(service_account_path)
         print("✅ Using service account authentication")
+        print(f"✅ Project ID: {os.getenv('GOOGLE_PROJECT_ID', 'truxtsaas')}")
+        print(f"✅ Client Email: {os.getenv('GOOGLE_CLIENT_EMAIL', 'adk-api-server@truxtsaas.iam.gserviceaccount.com')}")
         return True
     elif os.getenv("GOOGLE_API_KEY"):
         print("✅ Using API key authentication")
@@ -58,20 +60,45 @@ auth_available = setup_google_auth()
 brand_pulse_agent = None
 if auth_available:
     try:
-# Try a different approach - use google.genai directly for now
-        import google.generativeai as genai
+        # Initialize Google ADK Agent
+        from google.adk.agents import Agent
         
-        # Configure the model with the service account
-        genai.configure()  # Uses GOOGLE_APPLICATION_CREDENTIALS
+        # Configure the agent with environment variables
+        agent_config = {
+            "project_id": os.getenv("GOOGLE_ADK_PROJECT_ID", "truxtsaas"),
+            "location": os.getenv("GOOGLE_ADK_LOCATION", "us-central1"),
+            "agent_id": os.getenv("GOOGLE_ADK_AGENT_ID", "brandpulse-agent"),
+            "model": os.getenv("GOOGLE_ADK_MODEL", "gemini-2.0-flash-exp")
+        }
         
-        # Create a simple model instance  
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        print(f"🤖 Initializing ADK Agent with config: {agent_config}")
         
-        # Store the model instead of the agent
-        brand_pulse_agent = model
-        print("✅ BrandPulse Assistant initialized successfully")
+        # Try to create ADK agent
+        try:
+            brand_pulse_agent = Agent(
+                project_id=agent_config["project_id"],
+                location=agent_config["location"],
+                agent_id=agent_config["agent_id"]
+            )
+            print("✅ BrandPulse ADK Agent initialized successfully")
+        except Exception as adk_error:
+            print(f"⚠️ ADK Agent failed, falling back to direct Gemini: {adk_error}")
+            
+            # Fallback to direct Gemini API
+            import google.generativeai as genai
+            
+            # Configure the model with the service account
+            genai.configure()  # Uses GOOGLE_APPLICATION_CREDENTIALS
+            
+            # Create a simple model instance  
+            model = genai.GenerativeModel(agent_config["model"])
+            
+            # Store the model instead of the agent
+            brand_pulse_agent = model
+            print("✅ BrandPulse Assistant (Gemini direct) initialized successfully")
+            
     except Exception as e:
-        print(f"❌ Failed to initialize agent: {e}")
+        print(f"❌ Failed to initialize any agent: {e}")
         brand_pulse_agent = None
 
 # Chat history storage (in production, use a proper database)
@@ -85,10 +112,13 @@ async def root():
 async def health_check():
     return {
         "status": "healthy", 
-        "agent": "BrandPulse_Assistant", 
-        "model": "gemini-2.0-flash-exp",
+        "agent": os.getenv("AGENT_NAME", "BrandPulse_Assistant"), 
+        "model": os.getenv("AGENT_MODEL", "gemini-2.0-flash-exp"),
         "agent_available": brand_pulse_agent is not None,
-        "auth_method": "service_account" if Path(__file__).parent.joinpath("service_account.json").exists() else "api_key"
+        "auth_method": "service_account" if Path(__file__).parent.joinpath("service_account.json").exists() else "api_key",
+        "project_id": os.getenv("GOOGLE_PROJECT_ID"),
+        "client_email": os.getenv("GOOGLE_CLIENT_EMAIL"),
+        "agent_type": "ADK" if hasattr(brand_pulse_agent, 'agent_id') else "Gemini_Direct"
     }
 
 @app.get("/debug")

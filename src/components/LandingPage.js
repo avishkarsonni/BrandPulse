@@ -39,52 +39,29 @@ const LandingPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Smartphone products for search
-  const smartphoneProducts = [
-    { name: 'iPhone 15 Pro', brand: 'Apple', category: 'Smartphones' },
-    { name: 'iPhone 15', brand: 'Apple', category: 'Smartphones' },
-    { name: 'iPhone 14 Pro', brand: 'Apple', category: 'Smartphones' },
-    { name: 'Samsung Galaxy S24', brand: 'Samsung', category: 'Smartphones' },
-    { name: 'Samsung Galaxy S23', brand: 'Samsung', category: 'Smartphones' },
-    { name: 'Google Pixel 8', brand: 'Google', category: 'Smartphones' },
-    { name: 'Google Pixel 7', brand: 'Google', category: 'Smartphones' },
-    { name: 'OnePlus 12', brand: 'OnePlus', category: 'Smartphones' },
-    { name: 'Xiaomi 14', brand: 'Xiaomi', category: 'Smartphones' },
-    { name: 'Huawei P60', brand: 'Huawei', category: 'Smartphones' },
-  ];
-
   const handleSearch = async (productName) => {
-    if (!productName) return;
+    if (!productName || productName.trim().length < 2) return;
     
     try {
       setLoading(true);
       setError(null);
       
-      // Find the product in our smartphone list
-      const product = smartphoneProducts.find(p => 
-        p.name.toLowerCase().includes(productName.toLowerCase())
-      );
+      // Search directly in database API for any product
+      const searchResults = await apiService.searchProducts(productName.trim());
+      const productData = searchResults.results?.[0];
       
-      if (product) {
-        // Get product data from API
-        const searchResults = await apiService.searchProducts(productName, { category: 'Smartphones' });
-        const productData = searchResults.results?.[0];
+      if (productData) {
+        // Update the global product context
+        updateProduct(productData, productData);
         
-        if (productData) {
-          // Update the global product context
-          updateProduct(productData, productData);
-          
-          // Navigate to dashboard with the selected product
-          navigate('/dashboard');
-        } else {
-          setError('Product not found. Please try a different search term.');
-        }
+        // Navigate to dashboard with the selected product
+        navigate('/dashboard');
       } else {
-        setError('Please select a smartphone from the suggestions.');
+        setError(`No products found for "${productName}". Try searching for brands like Apple, Nike, Starbucks, or categories like Beauty, Food, Automotive.`);
       }
     } catch (err) {
-      setError('Failed to load product data. Please try again.');
       console.error('Search error:', err);
+      setError('Search failed. Please try again or check your connection.');
     } finally {
       setLoading(false);
     }
@@ -93,11 +70,31 @@ const LandingPage = () => {
   const handleInputChange = (event, newInputValue) => {
     setSearchQuery(newInputValue);
     if (newInputValue.length > 1) {
-      const filtered = smartphoneProducts.filter(product =>
-        product.name.toLowerCase().includes(newInputValue.toLowerCase()) ||
-        product.brand.toLowerCase().includes(newInputValue.toLowerCase())
-      );
-      setSuggestions(filtered);
+      // Use database API for real-time search suggestions
+      const getSuggestions = async () => {
+        try {
+          const searchResults = await apiService.searchProducts(newInputValue);
+          if (searchResults.results && searchResults.results.length > 0) {
+            // Transform database results to match suggestion format
+            const dbSuggestions = searchResults.results.slice(0, 8).map(product => ({
+              name: product.name,
+              brand: product.brand,
+              category: product.category
+            }));
+            setSuggestions(dbSuggestions);
+          } else {
+            // No database results, clear suggestions
+            setSuggestions([]);
+          }
+        } catch (error) {
+          console.warn('Database search failed:', error);
+          // Clear suggestions on error
+          setSuggestions([]);
+        }
+      };
+      
+      // Debounce the API call
+      setTimeout(getSuggestions, 300);
     } else {
       setSuggestions([]);
     }

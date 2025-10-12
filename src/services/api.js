@@ -9,6 +9,15 @@ const api = axios.create({
   },
 });
 
+// Create database API instance
+const dbApi = axios.create({
+  baseURL: process.env.REACT_APP_DB_API_URL || 'http://localhost:8001',
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 // Request interceptor to add API key
 api.interceptors.request.use(
   (config) => {
@@ -46,24 +55,135 @@ class ApiService {
   // Dashboard endpoints
   async getDashboardOverview() {
     try {
+      // First try to get real data from database API
+      const dbResponse = await dbApi.get('/analytics/overview');
+      if (dbResponse.data && dbResponse.data.total_products > 0) {
+        console.log('✅ Using real database data for dashboard');
+        return this.transformDatabaseToDashboard(dbResponse.data);
+      }
+      
+      // Fallback to backend API
       const response = await api.get('/api/dashboard/overview');
       return response.data;
     } catch (error) {
       // Return mock data if API is not available
+      console.warn('⚠️ Using mock data - database not available:', error.message);
       return this.getMockDashboardData();
     }
+  }
+
+  // Transform database analytics to dashboard format
+  transformDatabaseToDashboard(dbData) {
+    const sentimentBreakdown = dbData.sentiment_breakdown || [];
+    const total = sentimentBreakdown.reduce((sum, item) => sum + item.count, 0);
+    
+    const positive = sentimentBreakdown.find(s => s.sentiment === 'positive')?.count || 0;
+    const negative = sentimentBreakdown.find(s => s.sentiment === 'negative')?.count || 0;
+    const neutral = sentimentBreakdown.find(s => s.sentiment === 'neutral')?.count || 0;
+    
+    return {
+      totalReviews: total,
+      positivePercent: total > 0 ? (positive / total * 100).toFixed(1) : 0,
+      negativePercent: total > 0 ? (negative / total * 100).toFixed(1) : 0,
+      neutralPercent: total > 0 ? (neutral / total * 100).toFixed(1) : 0,
+      weeklyData: this.transformWeeklyData(dbData.recent_activity || []),
+      avgSentimentScore: dbData.avg_sentiment || 0,
+      totalProducts: dbData.total_products || 0,
+      channelBreakdown: dbData.channel_breakdown || []
+    };
+  }
+
+  transformWeeklyData(recentActivity) {
+    // Transform recent activity data to weekly format
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return days.map((day, index) => {
+      const activity = recentActivity[index] || {};
+      return {
+        day,
+        positive: Math.floor((activity.count || 0) * 0.6),
+        negative: Math.floor((activity.count || 0) * 0.2),
+        neutral: Math.floor((activity.count || 0) * 0.2)
+      };
+    });
   }
 
   // Analytics endpoints
   async getAnalyticsData(timeRange = '7d', channel = 'all') {
     try {
+      // First try to get real data from database API
+      const dbResponse = await dbApi.get('/sentiment', {
+        params: { 
+          limit: 1000,
+          channel: channel !== 'all' ? channel : undefined 
+        }
+      });
+      
+      if (dbResponse.data && dbResponse.data.results.length > 0) {
+        console.log('✅ Using real database data for analytics');
+        return this.transformSentimentData(dbResponse.data.results, timeRange, channel);
+      }
+      
+      // Fallback to backend API
       const response = await api.get('/api/analytics/sentiment', {
         params: { timeRange, channel }
       });
       return response.data;
     } catch (error) {
+      console.warn('⚠️ Using mock analytics data - database not available:', error.message);
       return this.getMockAnalyticsData();
     }
+  }
+
+  transformSentimentData(sentimentData, timeRange, channel) {
+    // Group by channel
+    const channelGroups = {};
+    sentimentData.forEach(item => {
+      const ch = item.channel || 'Unknown';
+      if (!channelGroups[ch]) {
+        channelGroups[ch] = { positive: 0, negative: 0, neutral: 0, total: 0 };
+      }
+      channelGroups[ch][item.sentiment]++;
+      channelGroups[ch].total++;
+    });
+
+    const channelBreakdown = Object.entries(channelGroups).map(([channel, data]) => ({
+      channel,
+      positive: Math.round((data.positive / data.total) * 100),
+      negative: Math.round((data.negative / data.total) * 100),
+      neutral: Math.round((data.neutral / data.total) * 100),
+      total: data.total
+    }));
+
+    return {
+      channelBreakdown,
+      recentReviews: sentimentData.slice(0, 10).map(item => ({
+        id: item.id,
+        text: item.text,
+        sentiment: item.sentiment,
+        channel: item.channel || 'Unknown',
+        timestamp: item.timestamp || new Date().toISOString(),
+        score: item.score
+      })),
+      hourlyData: this.generateHourlyData(sentimentData)
+    };
+  }
+
+  generateHourlyData(sentimentData) {
+    const hourlyGroups = Array.from({ length: 24 }, (_, i) => ({
+      hour: i,
+      positive: 0,
+      negative: 0,
+      neutral: 0
+    }));
+
+    sentimentData.forEach(item => {
+      if (item.timestamp) {
+        const hour = new Date(item.timestamp).getHours();
+        hourlyGroups[hour][item.sentiment]++;
+      }
+    });
+
+    return hourlyGroups;
   }
 
   // Timeline endpoints
@@ -123,13 +243,47 @@ class ApiService {
   // Product search endpoints
   async searchProducts(query, filters = {}) {
     try {
+      // First try database API search
+      const dbResponse = await dbApi.get('/search/products', {
+        params: { q: query, limit: 20 }
+      });
+      
+      if (dbResponse.data && dbResponse.data.results.length > 0) {
+        console.log('✅ Using real database data for product search');
+        return this.transformProductSearchResults(dbResponse.data, query);
+      }
+      
+      // Fallback to backend API
       const response = await api.get('/api/products/search', {
         params: { q: query, ...filters }
       });
       return response.data;
     } catch (error) {
+      console.warn('⚠️ Using mock product search data - database not available:', error.message);
       return this.getMockProductSearchData(query);
     }
+  }
+
+  transformProductSearchResults(dbData, query) {
+    return {
+      results: dbData.results.map(product => ({
+        ...product,
+        sentiment_summary: {
+          positive: product.positive_mentions || 0,
+          negative: product.negative_mentions || 0,
+          neutral: product.neutral_mentions || 0,
+          avg_score: product.avg_sentiment_score || 0,
+          total_mentions: product.total_mentions || 0
+        }
+      })),
+      total: dbData.results.length,
+      query: query,
+      facets: {
+        brands: [...new Set(dbData.results.map(p => p.brand).filter(Boolean))],
+        categories: [...new Set(dbData.results.map(p => p.category).filter(Boolean))],
+        price_ranges: ['$0-$200', '$200-$1000', '$1000+']
+      }
+    };
   }
 
   async getProductDetails(productId) {
@@ -359,114 +513,16 @@ class ApiService {
     };
   }
 
-  // Mock data methods for product search
-  getMockProductSearchData(query) {
-    const allProducts = [
-      {
-        id: 1,
-        name: 'iPhone 15 Pro',
-        sku: 'APPLE-IP15P-128',
-        description: 'Latest iPhone with titanium design and advanced camera system',
-        category: 'Smartphones',
-        brand: 'Apple',
-        price: 999.00,
-        image_url: 'https://via.placeholder.com/300x300/007AFF/FFFFFF?text=iPhone+15+Pro',
-        sentiment_summary: {
-          positive: 72,
-          negative: 18,
-          neutral: 10,
-          avg_score: 0.68,
-          total_mentions: 1247
-        }
-      },
-      {
-        id: 2,
-        name: 'Samsung Galaxy S24',
-        sku: 'SAMSUNG-GS24-256',
-        description: 'Premium Android phone with AI-powered features',
-        category: 'Smartphones',
-        brand: 'Samsung',
-        price: 899.00,
-        image_url: 'https://via.placeholder.com/300x300/1F8EF1/FFFFFF?text=Galaxy+S24',
-        sentiment_summary: {
-          positive: 68,
-          negative: 22,
-          neutral: 10,
-          avg_score: 0.62,
-          total_mentions: 892
-        }
-      },
-      {
-        id: 3,
-        name: 'Nike Air Max 270',
-        sku: 'NIKE-AM270-BLK',
-        description: 'Comfortable running shoes with visible Air cushioning',
-        category: 'Footwear',
-        brand: 'Nike',
-        price: 150.00,
-        image_url: 'https://via.placeholder.com/300x300/FE5F00/FFFFFF?text=Air+Max+270',
-        sentiment_summary: {
-          positive: 78,
-          negative: 12,
-          neutral: 10,
-          avg_score: 0.74,
-          total_mentions: 634
-        }
-      },
-      {
-        id: 4,
-        name: 'MacBook Pro M3',
-        sku: 'APPLE-MBP-M3-512',
-        description: '16-inch MacBook Pro with M3 chip and 512GB storage',
-        category: 'Laptops',
-        brand: 'Apple',
-        price: 2499.00,
-        image_url: 'https://via.placeholder.com/300x300/007AFF/FFFFFF?text=MacBook+Pro',
-        sentiment_summary: {
-          positive: 85,
-          negative: 8,
-          neutral: 7,
-          avg_score: 0.82,
-          total_mentions: 423
-        }
-      },
-      {
-        id: 5,
-        name: 'Tesla Model Y',
-        sku: 'TESLA-MY-LR',
-        description: 'Electric SUV with autopilot and long range battery',
-        category: 'Vehicles',
-        brand: 'Tesla',
-        price: 52990.00,
-        image_url: 'https://via.placeholder.com/300x300/E31937/FFFFFF?text=Model+Y',
-        sentiment_summary: {
-          positive: 76,
-          negative: 15,
-          neutral: 9,
-          avg_score: 0.71,
-          total_mentions: 1856
-        }
-      }
-    ];
-
-    const filteredProducts = query 
-      ? allProducts.filter(product => 
-          product.name.toLowerCase().includes(query.toLowerCase()) ||
-          product.brand.toLowerCase().includes(query.toLowerCase()) ||
-          product.category.toLowerCase().includes(query.toLowerCase())
-        )
-      : allProducts;
-
-    return {
-      results: filteredProducts,
-      total: filteredProducts.length,
-      query: query,
-      facets: {
-        brands: ['Apple', 'Samsung', 'Nike', 'Tesla'],
-        categories: ['Smartphones', 'Footwear', 'Laptops', 'Vehicles'],
-        price_ranges: ['$0-$200', '$200-$1000', '$1000+']
-      }
-    };
+  // Database-driven methods (replacing mock data)
+  async getMockProductSearchData(query) {
+    // Use real database search instead of mock data
+    try {
+      const searchResults = await this.searchProducts(query);
+      return searchResults;
+    } catch (error) {
+      console.warn('Database search failed, returning empty results:', error);
+      return { results: [], total: 0, query: query };
+    }
   }
 
   getMockProductDetails(productId) {

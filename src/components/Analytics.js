@@ -47,16 +47,25 @@ const Analytics = () => {
   const fetchAnalyticsData = useCallback(async () => {
     try {
       setLoading(true);
-      // Use dummy data directly for now
-      console.log('Using dummy data for Analytics');
-      setAnalyticsData(null); // This will trigger the dummy data fallback
+      setError(null);
+      
+      // Try to get real data from database API first
+      const analyticsData = await apiService.getAnalyticsData(timeRange, channel);
+      if (analyticsData && analyticsData.summary && analyticsData.summary.totalMentions > 0) {
+        console.log('✅ Using real database data for analytics');
+        setAnalyticsData(analyticsData);
+      } else {
+        console.log('⚠️ No real data available, using fallback');
+        setAnalyticsData(null); // This will trigger the dummy data fallback
+      }
     } catch (err) {
       setError('Failed to load analytics data');
       console.error('Analytics data fetch error:', err);
+      setAnalyticsData(null); // This will trigger the dummy data fallback
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [timeRange, channel]);
 
   const handleProductSearch = async (query) => {
     if (query.length > 1) {

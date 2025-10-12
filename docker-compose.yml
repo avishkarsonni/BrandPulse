@@ -1,0 +1,155 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  database:
+    build:
+      context: ./database
+      dockerfile: Dockerfile
+    container_name: brandpulse-database
+    environment:
+      - POSTGRES_DB=brandpulse
+      - POSTGRES_USER=brandpulse_user
+      - POSTGRES_PASSWORD=brandpulse_password
+      - POSTGRES_HOST_AUTH_METHOD=md5
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seed_data.sql:/docker-entrypoint-initdb.d/02-seed_data.sql:ro
+    networks:
+      - brandpulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brandpulse_user -d brandpulse"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: brandpulse-backend
+    environment:
+      - DATABASE_URL=postgresql://brandpulse_user:brandpulse_password@database:5432/brandpulse
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/service_account.json
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:80,http://frontend:80
+      - LOG_LEVEL=info
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./backend/service_account.json:/app/service_account.json:ro
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - brandpulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # React Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: brandpulse-frontend
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_WS_URL=ws://localhost:8000
+      - NODE_ENV=production
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - brandpulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Database API Service (separate microservice for database operations)
+  database-api:
+    build:
+      context: ./database-api
+      dockerfile: Dockerfile
+    container_name: brandpulse-database-api
+    environment:
+      - DATABASE_URL=postgresql://brandpulse_user:brandpulse_password@database:5432/brandpulse
+      - API_PORT=8001
+      - LOG_LEVEL=info
+    ports:
+      - "8001:8001"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - brandpulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis for caching (optional but recommended for production)
+  redis:
+    image: redis:7-alpine
+    container_name: brandpulse-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - brandpulse-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Nginx Load Balancer (optional for production)
+  nginx:
+    image: nginx:alpine
+    container_name: brandpulse-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+      - database-api
+    networks:
+      - brandpulse-network
+    restart: unless-stopped
+    profiles:
+      - production
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  brandpulse-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

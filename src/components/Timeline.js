@@ -14,6 +14,7 @@ import {
   Alert,
   Chip,
 } from '@mui/material';
+import { apiService } from '../services/api';
 
 const Timeline = () => {
   const [loading, setLoading] = useState(true);
@@ -25,16 +26,30 @@ const Timeline = () => {
   const fetchTimelineData = useCallback(async () => {
     try {
       setLoading(true);
-      // Use dummy data directly for now
-      console.log('Using dummy data for Timeline');
+      setError(null);
+      
+      // Try to get real data from database API first
+      try {
+        const timelineResponse = await apiService.getTimelineData(timeRange, granularity);
+        if (timelineResponse && timelineResponse.timeline && timelineResponse.timeline.length > 0) {
+          console.log('✅ Using real database data for timeline');
+          setTimelineData(timelineResponse);
+          return;
+        }
+      } catch (dbError) {
+        console.warn('Database timeline failed, using fallback:', dbError);
+      }
+      
+      console.log('⚠️ No real data available, using fallback');
       setTimelineData(null); // This will trigger the dummy data fallback
     } catch (err) {
       setError('Failed to load timeline data');
       console.error('Timeline data fetch error:', err);
+      setTimelineData(null); // This will trigger the dummy data fallback
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [timeRange, granularity]);
 
   useEffect(() => {
     fetchTimelineData();

@@ -20,6 +20,7 @@ import {
   TextField,
   Button,
 } from '@mui/material';
+import { apiService } from '../services/api';
 
 const Topics = () => {
   const [loading, setLoading] = useState(true);
@@ -32,16 +33,30 @@ const Topics = () => {
   const fetchTopicsData = useCallback(async () => {
     try {
       setLoading(true);
-      // Use dummy data directly for now
-      console.log('Using dummy data for Topics');
+      setError(null);
+      
+      // Try to get real data from database API first
+      try {
+        const topicsResponse = await apiService.getTopicsData(timeRange);
+        if (topicsResponse && topicsResponse.topics && topicsResponse.topics.length > 0) {
+          console.log('✅ Using real database data for topics');
+          setTopicsData(topicsResponse);
+          return;
+        }
+      } catch (dbError) {
+        console.warn('Database topics failed, using fallback:', dbError);
+      }
+      
+      console.log('⚠️ No real data available, using fallback');
       setTopicsData(null); // This will trigger the dummy data fallback
     } catch (err) {
       setError('Failed to load topics data');
       console.error('Topics data fetch error:', err);
+      setTopicsData(null); // This will trigger the dummy data fallback
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [timeRange]);
 
   useEffect(() => {
     fetchTopicsData();
@@ -204,7 +219,7 @@ const Topics = () => {
                   Most Positive
                 </Typography>
                 <Typography variant="h6" color="success.main">
-                  {data.topicInsights?.mostPositive || 'N/A'}
+                  {data.topicInsights?.mostPositive || 'Loading...'}
                 </Typography>
               </Box>
               <Box sx={{ mb: 2 }}>
@@ -212,7 +227,7 @@ const Topics = () => {
                   Most Negative
                 </Typography>
                 <Typography variant="h6" color="error.main">
-                  {data.topicInsights?.mostNegative || 'N/A'}
+                  {data.topicInsights?.mostNegative || 'Loading...'}
                 </Typography>
               </Box>
               <Box sx={{ mb: 2 }}>
@@ -220,7 +235,7 @@ const Topics = () => {
                   Fastest Growing
                 </Typography>
                 <Typography variant="h6" color="info.main">
-                  {data.topicInsights?.fastestGrowing || 'N/A'}
+                  {data.topicInsights?.fastestGrowing || 'Loading...'}
                 </Typography>
               </Box>
               <Box>
@@ -228,7 +243,7 @@ const Topics = () => {
                   Most Discussed
                 </Typography>
                 <Typography variant="h6" color="warning.main">
-                  {data.topicInsights?.mostDiscussed || 'N/A'}
+                  {data.topicInsights?.mostDiscussed || 'Loading...'}
                 </Typography>
               </Box>
             </Box>
