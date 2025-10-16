@@ -41,8 +41,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { apiService } from '../services/api';
+import { useProduct } from '../contexts/ProductContext';
 
 const Chat = () => {
+  const { selectedProduct, productData } = useProduct();
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -236,6 +238,7 @@ const Chat = () => {
               </Typography>
               <Typography variant="caption" color="textSecondary">
                 Powered by Google ADK • Gemini 2.0 Flash • Product Analysis Expert
+                {selectedProduct && ` • Analyzing: ${selectedProduct.name}`}
               </Typography>
             </Box>
           </Box>

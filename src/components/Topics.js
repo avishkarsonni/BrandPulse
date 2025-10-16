@@ -21,8 +21,10 @@ import {
   Button,
 } from '@mui/material';
 import { apiService } from '../services/api';
+import { useProduct } from '../contexts/ProductContext';
 
 const Topics = () => {
+  const { selectedProduct, productData } = useProduct();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [topicsData, setTopicsData] = useState(null);
@@ -35,24 +37,19 @@ const Topics = () => {
       setLoading(true);
       setError(null);
       
-      // Try to get real data from database API first
-      try {
-        const topicsResponse = await apiService.getTopicsData(timeRange);
-        if (topicsResponse && topicsResponse.topics && topicsResponse.topics.length > 0) {
-          console.log('✅ Using real database data for topics');
-          setTopicsData(topicsResponse);
-          return;
-        }
-      } catch (dbError) {
-        console.warn('Database topics failed, using fallback:', dbError);
+      // Try to get real data from database API
+      const topicsResponse = await apiService.getTopicsData(timeRange);
+      if (topicsResponse && topicsResponse.topics && topicsResponse.topics.length > 0) {
+        console.log('✅ Using real database data for topics');
+        setTopicsData(topicsResponse);
+      } else {
+        console.log('ℹ️ No topics data available');
+        setTopicsData(null);
       }
-      
-      console.log('⚠️ No real data available, using fallback');
-      setTopicsData(null); // This will trigger the dummy data fallback
     } catch (err) {
       setError('Failed to load topics data');
       console.error('Topics data fetch error:', err);
-      setTopicsData(null); // This will trigger the dummy data fallback
+      setTopicsData(null);
     } finally {
       setLoading(false);
     }
@@ -86,32 +83,62 @@ const Topics = () => {
     );
   }
 
-  const data = topicsData || {
-    topics: [
-      { id: 1, name: 'Product Quality', count: 1250, sentiment: 'positive', percentage: 35.2, trend: '+12.5%', keywords: ['quality', 'durable', 'reliable', 'excellent'] },
-      { id: 2, name: 'Customer Service', count: 980, sentiment: 'negative', percentage: 27.6, trend: '-5.2%', keywords: ['support', 'help', 'response', 'assistance'] },
-      { id: 3, name: 'Delivery Speed', count: 750, sentiment: 'positive', percentage: 21.1, trend: '+8.7%', keywords: ['fast', 'quick', 'shipping', 'delivery'] },
-      { id: 4, name: 'Pricing', count: 620, sentiment: 'neutral', percentage: 17.5, trend: '+2.1%', keywords: ['price', 'cost', 'expensive', 'affordable'] },
-      { id: 5, name: 'User Interface', count: 480, sentiment: 'positive', percentage: 13.5, trend: '+15.3%', keywords: ['interface', 'design', 'layout', 'navigation'] },
-      { id: 6, name: 'Technical Support', count: 420, sentiment: 'negative', percentage: 11.8, trend: '-8.9%', keywords: ['technical', 'bug', 'issue', 'problem'] },
-      { id: 7, name: 'Features', count: 380, sentiment: 'positive', percentage: 10.7, trend: '+22.1%', keywords: ['feature', 'functionality', 'capability', 'option'] },
-      { id: 8, name: 'Documentation', count: 320, sentiment: 'neutral', percentage: 9.0, trend: '+3.4%', keywords: ['documentation', 'guide', 'manual', 'tutorial'] },
-      { id: 9, name: 'Performance', count: 280, sentiment: 'positive', percentage: 7.9, trend: '+18.6%', keywords: ['performance', 'speed', 'efficient', 'fast'] },
-      { id: 10, name: 'Security', count: 240, sentiment: 'positive', percentage: 6.8, trend: '+11.2%', keywords: ['security', 'safe', 'secure', 'privacy'] },
-    ],
-    trendingTopics: [
-      { name: 'AI Features', growth: '+45.2%', sentiment: 'positive' },
-      { name: 'Mobile App', growth: '+32.8%', sentiment: 'positive' },
-      { name: 'Data Privacy', growth: '+28.5%', sentiment: 'neutral' },
-      { name: 'Integration Issues', growth: '+15.7%', sentiment: 'negative' },
-    ],
-    topicInsights: {
-      mostPositive: 'Product Quality',
-      mostNegative: 'Customer Service',
-      fastestGrowing: 'AI Features',
-      mostDiscussed: 'Pricing',
-    },
-  };
+  // If no topics data, show empty state
+  if (!topicsData) {
+    return (
+      <Box sx={{ maxWidth: '100%', overflow: 'hidden' }}>
+        {/* Header Section */}
+        <Box sx={{ mb: 4, textAlign: 'center' }}>
+          <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+            Topic Analysis Dashboard
+          </Typography>
+          <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 3 }}>
+            Analyze trending topics and sentiment patterns across your products
+          </Typography>
+        </Box>
+
+        {/* Time Range Filter */}
+        <Box sx={{ mb: 3, display: 'flex', gap: 2, justifyContent: 'center' }}>
+          <FormControl sx={{ minWidth: 200 }}>
+            <InputLabel>Time Range</InputLabel>
+            <Select
+              value={timeRange}
+              label="Time Range"
+              onChange={(e) => setTimeRange(e.target.value)}
+            >
+              <MenuItem value="24h">Last 24 Hours</MenuItem>
+              <MenuItem value="7d">Last 7 Days</MenuItem>
+              <MenuItem value="30d">Last 30 Days</MenuItem>
+              <MenuItem value="90d">Last 90 Days</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+
+        {/* Empty State Message */}
+        <Paper 
+          sx={{ 
+            p: 6, 
+            textAlign: 'center',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            borderRadius: 2
+          }}
+        >
+          <Typography variant="h4" gutterBottom>
+            No Topics Data Available
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 3, opacity: 0.9 }}>
+            Topic analysis data is not available at the moment. This could be because there is no sentiment data in the database yet.
+          </Typography>
+          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            Topics are extracted from product reviews and sentiment analysis. Make sure products have sentiment data to see topics here.
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
+
+  const data = topicsData;
 
   const getSentimentColor = (sentiment) => {
     switch (sentiment) {
@@ -127,166 +154,240 @@ const Topics = () => {
   );
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Topic Analysis
-      </Typography>
-
-      {/* Filters and Search */}
-      <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
-        <FormControl sx={{ minWidth: 120 }}>
-          <InputLabel>Time Range</InputLabel>
-          <Select
-            value={timeRange}
-            label="Time Range"
-            onChange={(e) => setTimeRange(e.target.value)}
-          >
-            <MenuItem value="24h">Last 24 Hours</MenuItem>
-            <MenuItem value="7d">Last 7 Days</MenuItem>
-            <MenuItem value="30d">Last 30 Days</MenuItem>
-            <MenuItem value="90d">Last 90 Days</MenuItem>
-          </Select>
-        </FormControl>
-
-        <TextField
-          label="Search Topics"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ minWidth: 200 }}
-        />
-        <Button variant="contained" onClick={handleSearch}>
-          Search
-        </Button>
+     <Box sx={{ maxWidth: '100%', overflow: 'hidden' }}>
+      {/* Header Section */}
+      <Box sx={{ mb: 4, textAlign: 'center' }}>
+        <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+          Topic Analysis Dashboard
+        </Typography>
+        <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 3 }}>
+          Analyze trending topics and sentiment patterns across your products
+        </Typography>
       </Box>
 
+      {/* Filters and Search Section */}
+      <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+        <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+          Filters & Search
+        </Typography>
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 2, 
+          alignItems: 'center', 
+          flexWrap: 'wrap',
+          justifyContent: 'center'
+        }}>
+          <FormControl sx={{ minWidth: 140 }}>
+            <InputLabel>Time Range</InputLabel>
+            <Select
+              value={timeRange}
+              label="Time Range"
+              onChange={(e) => setTimeRange(e.target.value)}
+            >
+              <MenuItem value="24h">Last 24 Hours</MenuItem>
+              <MenuItem value="7d">Last 7 Days</MenuItem>
+              <MenuItem value="30d">Last 30 Days</MenuItem>
+              <MenuItem value="90d">Last 90 Days</MenuItem>
+            </Select>
+          </FormControl>
+
+          <TextField
+            label="Search Topics"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ minWidth: 250 }}
+            placeholder="Type to search topics..."
+          />
+          <Button 
+            variant="contained" 
+            onClick={handleSearch}
+            sx={{ minWidth: 100 }}
+          >
+            Search
+          </Button>
+        </Box>
+      </Paper>
+
       <Grid container spacing={3}>
-        {/* Topics Chart */}
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
+        {/* Top Row: Chart and Insights */}
+        <Grid item xs={12} lg={8}>
+          <Paper sx={{ p: 3, height: '100%', borderRadius: 2 }}>
+            <Typography variant="h6" gutterBottom sx={{ textAlign: 'center', mb: 3 }}>
               Top Topics by Mentions
             </Typography>
-            <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography variant="body1" color="textSecondary">
-                Topics chart will be displayed here
-              </Typography>
+            <Box sx={{ 
+              height: 350, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              backgroundColor: 'grey.50',
+              borderRadius: 1,
+              border: '2px dashed',
+              borderColor: 'grey.300'
+            }}>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  📊 Topics Visualization
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Interactive chart will be displayed here
+                </Typography>
+              </Box>
             </Box>
           </Paper>
         </Grid>
 
-        {/* Trending Topics */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Trending Topics
+        {/* Topic Insights - Better organized */}
+        <Grid item xs={12} lg={4}>
+          <Paper sx={{ p: 3, height: '100%', borderRadius: 2 }}>
+            <Typography variant="h6" gutterBottom sx={{ textAlign: 'center', mb: 3 }}>
+              📈 Topic Insights
             </Typography>
-            <Box sx={{ height: 200, overflow: 'auto' }}>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: 2,
+              height: 'calc(100% - 60px)',
+              justifyContent: 'space-between'
+            }}>
+              <Box sx={{ 
+                p: 2, 
+                backgroundColor: 'success.light', 
+                borderRadius: 2,
+                textAlign: 'center'
+              }}>
+                <Typography variant="body2" color="success.dark" sx={{ fontWeight: 'bold' }}>
+                  Most Positive
+                </Typography>
+                <Typography variant="h6" color="success.dark" sx={{ fontWeight: 'bold' }}>
+                  {data.topicInsights?.mostPositive || 'N/A'}
+                </Typography>
+              </Box>
+              
+              <Box sx={{ 
+                p: 2, 
+                backgroundColor: 'error.light', 
+                borderRadius: 2,
+                textAlign: 'center'
+              }}>
+                <Typography variant="body2" color="error.dark" sx={{ fontWeight: 'bold' }}>
+                  Most Negative
+                </Typography>
+                <Typography variant="h6" color="error.dark" sx={{ fontWeight: 'bold' }}>
+                  {data.topicInsights?.mostNegative || 'N/A'}
+                </Typography>
+              </Box>
+              
+              <Box sx={{ 
+                p: 2, 
+                backgroundColor: 'info.light', 
+                borderRadius: 2,
+                textAlign: 'center'
+              }}>
+                <Typography variant="body2" color="info.dark" sx={{ fontWeight: 'bold' }}>
+                  Fastest Growing
+                </Typography>
+                <Typography variant="h6" color="info.dark" sx={{ fontWeight: 'bold' }}>
+                  {data.topicInsights?.fastestGrowing || 'N/A'}
+                </Typography>
+              </Box>
+              
+              <Box sx={{ 
+                p: 2, 
+                backgroundColor: 'warning.light', 
+                borderRadius: 2,
+                textAlign: 'center'
+              }}>
+                <Typography variant="body2" color="warning.dark" sx={{ fontWeight: 'bold' }}>
+                  Most Discussed
+                </Typography>
+                <Typography variant="h6" color="warning.dark" sx={{ fontWeight: 'bold' }}>
+                  {data.topicInsights?.mostDiscussed || 'N/A'}
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
+        </Grid>
+
+        {/* Trending Topics - Better positioned */}
+        <Grid item xs={12} lg={6}>
+          <Paper sx={{ p: 3, borderRadius: 2 }}>
+            <Typography variant="h6" gutterBottom sx={{ textAlign: 'center', mb: 3 }}>
+              🔥 Trending Topics
+            </Typography>
+            <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
               {(data.trendingTopics || []).map((topic, index) => (
-                <Box key={topic.name} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="body2" sx={{ flexGrow: 1 }}>
+                <Box 
+                  key={topic.name} 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    mb: 2,
+                    p: 2,
+                    backgroundColor: 'grey.50',
+                    borderRadius: 1,
+                    border: '1px solid',
+                    borderColor: 'grey.200'
+                  }}
+                >
+                  <Typography variant="body1" sx={{ flexGrow: 1, fontWeight: 'medium' }}>
                     {topic.name}
                   </Typography>
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
-                      color: topic.growth.startsWith('+') ? 'success.main' : 'error.main',
-                      fontWeight: 'bold',
-                      mr: 1
-                    }}
-                  >
-                    {topic.growth}
-                  </Typography>
-                  <Chip
-                    label={topic.sentiment}
-                    color={getSentimentColor(topic.sentiment)}
-                    size="small"
-                  />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        color: topic.growth.startsWith('+') ? 'success.main' : 'error.main',
+                        fontWeight: 'bold',
+                        minWidth: '60px',
+                        textAlign: 'right'
+                      }}
+                    >
+                      {topic.growth}
+                    </Typography>
+                    <Chip
+                      label={topic.sentiment}
+                      color={getSentimentColor(topic.sentiment)}
+                      size="small"
+                      sx={{ minWidth: '80px' }}
+                    />
+                  </Box>
                 </Box>
               ))}
             </Box>
           </Paper>
         </Grid>
 
-        {/* Topic Insights */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Topic Insights
+        {/* Topics List - Better organized */}
+        <Grid item xs={12} lg={6}>
+          <Paper sx={{ p: 3, borderRadius: 2 }}>
+            <Typography variant="h6" gutterBottom sx={{ textAlign: 'center', mb: 3 }}>
+              📋 All Topics ({filteredTopics.length})
             </Typography>
-            <Box sx={{ height: 200 }}>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="textSecondary">
-                  Most Positive
-                </Typography>
-                <Typography variant="h6" color="success.main">
-                  {data.topicInsights?.mostPositive || 'Loading...'}
-                </Typography>
-              </Box>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="textSecondary">
-                  Most Negative
-                </Typography>
-                <Typography variant="h6" color="error.main">
-                  {data.topicInsights?.mostNegative || 'Loading...'}
-                </Typography>
-              </Box>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="textSecondary">
-                  Fastest Growing
-                </Typography>
-                <Typography variant="h6" color="info.main">
-                  {data.topicInsights?.fastestGrowing || 'Loading...'}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="body2" color="textSecondary">
-                  Most Discussed
-                </Typography>
-                <Typography variant="h6" color="warning.main">
-                  {data.topicInsights?.mostDiscussed || 'Loading...'}
-                </Typography>
-              </Box>
-            </Box>
-          </Paper>
-        </Grid>
-
-        {/* Topics List */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              All Topics
-            </Typography>
-            <List>
+            <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
               {filteredTopics.map((topic) => (
-                <ListItem
+                <Box
                   key={topic.id}
-                  button
                   onClick={() => handleTopicClick(topic)}
-                  selected={selectedTopic?.id === topic.id}
+                  sx={{
+                    p: 2,
+                    mb: 1,
+                    borderRadius: 1,
+                    cursor: 'pointer',
+                    backgroundColor: selectedTopic?.id === topic.id ? 'primary.light' : 'grey.50',
+                    border: '1px solid',
+                    borderColor: selectedTopic?.id === topic.id ? 'primary.main' : 'grey.200',
+                    '&:hover': {
+                      backgroundColor: selectedTopic?.id === topic.id ? 'primary.light' : 'grey.100',
+                    },
+                    transition: 'all 0.2s ease-in-out'
+                  }}
                 >
-                  <ListItemText
-                    primary={topic.name}
-                    secondary={
-                      <Box>
-                        <Typography variant="body2">
-                          {topic.count} mentions ({topic.percentage}%)
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                          {(topic.keywords || []).slice(0, 3).map((keyword) => (
-                            <Chip
-                              key={keyword}
-                              label={keyword}
-                              size="small"
-                              variant="outlined"
-                              sx={{ fontSize: '0.7rem', height: 20 }}
-                            />
-                          ))}
-                        </Box>
-                      </Box>
-                    }
-                  />
-                  <ListItemSecondaryAction>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', flexGrow: 1 }}>
+                      {topic.name}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Chip
                         label={topic.sentiment}
                         color={getSentimentColor(topic.sentiment)}
@@ -296,73 +397,95 @@ const Topics = () => {
                         variant="caption" 
                         sx={{ 
                           color: topic.trend.startsWith('+') ? 'success.main' : 'error.main',
-                          fontWeight: 'bold'
+                          fontWeight: 'bold',
+                          minWidth: '50px',
+                          textAlign: 'right'
                         }}
                       >
                         {topic.trend}
                       </Typography>
                     </Box>
-                  </ListItemSecondaryAction>
-                </ListItem>
+                  </Box>
+                  
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {topic.count.toLocaleString()} mentions ({topic.percentage}%)
+                  </Typography>
+                  
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                    {(topic.keywords || []).slice(0, 4).map((keyword) => (
+                      <Chip
+                        key={keyword}
+                        label={keyword}
+                        size="small"
+                        variant="outlined"
+                        sx={{ fontSize: '0.7rem', height: 22 }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
               ))}
-            </List>
+            </Box>
           </Paper>
         </Grid>
 
-        {/* Topic Details */}
+        {/* Topic Details - Better organized */}
         {selectedTopic && (
           <Grid item xs={12}>
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                {selectedTopic.name} - Detailed Analysis
+            <Paper sx={{ p: 3, borderRadius: 2 }}>
+              <Typography variant="h6" gutterBottom sx={{ textAlign: 'center', mb: 3 }}>
+                📊 {selectedTopic.name} - Detailed Analysis
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12} md={3}>
-                  <Card>
+                <Grid item xs={6} sm={3}>
+                  <Card sx={{ textAlign: 'center', backgroundColor: 'primary.light' }}>
                     <CardContent>
-                      <Typography color="textSecondary" gutterBottom>
+                      <Typography color="primary.dark" gutterBottom sx={{ fontWeight: 'bold' }}>
                         Total Mentions
                       </Typography>
-                      <Typography variant="h4">
-                        {selectedTopic.count}
+                      <Typography variant="h4" color="primary.dark" sx={{ fontWeight: 'bold' }}>
+                        {selectedTopic.count.toLocaleString()}
                       </Typography>
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={12} md={3}>
-                  <Card>
+                <Grid item xs={6} sm={3}>
+                  <Card sx={{ textAlign: 'center', backgroundColor: 'info.light' }}>
                     <CardContent>
-                      <Typography color="textSecondary" gutterBottom>
+                      <Typography color="info.dark" gutterBottom sx={{ fontWeight: 'bold' }}>
                         Percentage
                       </Typography>
-                      <Typography variant="h4">
+                      <Typography variant="h4" color="info.dark" sx={{ fontWeight: 'bold' }}>
                         {selectedTopic.percentage}%
                       </Typography>
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={12} md={3}>
-                  <Card>
+                <Grid item xs={6} sm={3}>
+                  <Card sx={{ textAlign: 'center', backgroundColor: 'success.light' }}>
                     <CardContent>
-                      <Typography color="textSecondary" gutterBottom>
+                      <Typography color="success.dark" gutterBottom sx={{ fontWeight: 'bold' }}>
                         Overall Sentiment
                       </Typography>
                       <Chip
                         label={selectedTopic.sentiment}
                         color={getSentimentColor(selectedTopic.sentiment)}
-                        sx={{ mt: 1 }}
+                        sx={{ mt: 1, fontWeight: 'bold' }}
                       />
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={12} md={3}>
-                  <Card>
+                <Grid item xs={6} sm={3}>
+                  <Card sx={{ textAlign: 'center', backgroundColor: 'warning.light' }}>
                     <CardContent>
-                      <Typography color="textSecondary" gutterBottom>
+                      <Typography color="warning.dark" gutterBottom sx={{ fontWeight: 'bold' }}>
                         Trend
                       </Typography>
-                      <Typography variant="h6" color="success.main">
-                        +12.5%
+                      <Typography 
+                        variant="h4" 
+                        color={selectedTopic.trend.startsWith('+') ? 'success.main' : 'error.main'}
+                        sx={{ fontWeight: 'bold' }}
+                      >
+                        {selectedTopic.trend}
                       </Typography>
                     </CardContent>
                   </Card>

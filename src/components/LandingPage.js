@@ -51,8 +51,23 @@ const LandingPage = () => {
       const productData = searchResults.results?.[0];
       
       if (productData) {
-        // Update the global product context
-        updateProduct(productData, productData);
+        // Fetch product-specific sentiment data
+        const sentimentData = await apiService.getProductSentiment(productData.id);
+        
+        // Create enriched product data with sentiment summary
+        const enrichedProductData = {
+          ...productData,
+          sentiment_summary: {
+            total_mentions: sentimentData.summary?.total_mentions || 0,
+            positive: sentimentData.summary?.positive_mentions || 0,
+            negative: sentimentData.summary?.negative_mentions || 0,
+            neutral: sentimentData.summary?.neutral_mentions || 0,
+            avg_score: sentimentData.summary?.avg_sentiment_score || 0
+          }
+        };
+        
+        // Update the global product context with enriched data
+        updateProduct(productData, enrichedProductData);
         
         // Navigate to dashboard with the selected product
         navigate('/dashboard');
@@ -73,22 +88,60 @@ const LandingPage = () => {
       // Use database API for real-time search suggestions
       const getSuggestions = async () => {
         try {
-          const searchResults = await apiService.searchProducts(newInputValue);
-          if (searchResults.results && searchResults.results.length > 0) {
-            // Transform database results to match suggestion format
-            const dbSuggestions = searchResults.results.slice(0, 8).map(product => ({
-              name: product.name,
-              brand: product.brand,
-              category: product.category
-            }));
+          // First try to get suggestions from database API
+          const suggestionsResponse = await apiService.getProductSuggestions(newInputValue);
+          if (suggestionsResponse.suggestions && suggestionsResponse.suggestions.length > 0) {
+            // Transform suggestion strings to objects with proper categorization
+            const dbSuggestions = suggestionsResponse.suggestions.map(suggestion => {
+              let brand = '';
+              let category = 'General';
+              
+              // Determine brand and category based on suggestion content
+              if (suggestion.includes('Apple') || suggestion.includes('iPhone')) {
+                brand = 'Apple';
+                category = 'Smartphones';
+              } else if (suggestion.includes('Samsung') || suggestion.includes('Galaxy')) {
+                brand = 'Samsung';
+                category = 'Smartphones';
+              } else if (suggestion.includes('Nike')) {
+                brand = 'Nike';
+                category = 'Footwear';
+              } else if (suggestion.includes('Tesla')) {
+                brand = 'Tesla';
+                category = 'Vehicles';
+              } else if (suggestion === 'Smartphones') {
+                category = 'Smartphones';
+              } else if (suggestion === 'Laptops') {
+                category = 'Laptops';
+              } else if (suggestion === 'Footwear') {
+                category = 'Footwear';
+              } else if (suggestion === 'Vehicles') {
+                category = 'Vehicles';
+              }
+              
+              return {
+                name: suggestion,
+                brand: brand,
+                category: category
+              };
+            });
             setSuggestions(dbSuggestions);
           } else {
-            // No database results, clear suggestions
-            setSuggestions([]);
+            // Fallback to search results for suggestions
+            const searchResults = await apiService.searchProducts(newInputValue);
+            if (searchResults.results && searchResults.results.length > 0) {
+              const dbSuggestions = searchResults.results.slice(0, 8).map(product => ({
+                name: product.name,
+                brand: product.brand,
+                category: product.category
+              }));
+              setSuggestions(dbSuggestions);
+            } else {
+              setSuggestions([]);
+            }
           }
         } catch (error) {
-          console.warn('Database search failed:', error);
-          // Clear suggestions on error
+          console.warn('Database suggestions failed:', error);
           setSuggestions([]);
         }
       };

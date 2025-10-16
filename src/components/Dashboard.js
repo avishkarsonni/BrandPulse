@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Grid,
   Paper,
@@ -10,6 +10,9 @@ import {
   Alert,
   Chip,
   Button,
+  TextField,
+  Autocomplete,
+  InputAdornment,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -18,22 +21,84 @@ import {
   SentimentNeutral,
   PhoneAndroid,
   Clear,
+  Search,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useProduct } from '../contexts/ProductContext';
 import { apiService } from '../services/api';
 
 const Dashboard = () => {
-  const { selectedProduct, productData, clearProduct } = useProduct();
+  const { selectedProduct, productData, clearProduct, updateProduct } = useProduct();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dashboardData, setDashboardData] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, [selectedProduct, productData]);
+  // Search functionality
+  const handleSearchInputChange = useCallback(async (event, newInputValue) => {
+    setSearchQuery(newInputValue);
+    
+    if (newInputValue && newInputValue.length > 1) {
+      setSearchLoading(true);
+      try {
+        const suggestions = await apiService.getProductSuggestions(newInputValue);
+        setSearchSuggestions(suggestions.suggestions || []);
+      } catch (err) {
+        console.error('Search suggestions error:', err);
+        setSearchSuggestions([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    } else {
+      setSearchSuggestions([]);
+    }
+  }, []);
 
-  const fetchDashboardData = async () => {
+  const handleProductSelect = useCallback(async (event, selectedValue) => {
+    if (selectedValue) {
+      try {
+        setSearchLoading(true);
+        setError(null);
+        
+        // Search for the selected product
+        const searchResults = await apiService.searchProducts(selectedValue);
+        if (searchResults.results && searchResults.results.length > 0) {
+          const product = searchResults.results[0];
+          
+          // Fetch product-specific sentiment data
+          const sentimentData = await apiService.getProductSentiment(product.id);
+          
+          // Create enriched product data with sentiment summary
+          const enrichedProductData = {
+            ...product,
+            sentiment_summary: {
+              total_mentions: sentimentData.summary?.total_mentions || 0,
+              positive: sentimentData.summary?.positive_mentions || 0,
+              negative: sentimentData.summary?.negative_mentions || 0,
+              neutral: sentimentData.summary?.neutral_mentions || 0,
+              avg_score: sentimentData.summary?.avg_sentiment_score || 0
+            }
+          };
+          
+          // Update the global product context with enriched data
+          updateProduct(product, enrichedProductData);
+          
+          console.log('✅ Product selected:', product.name);
+        } else {
+          setError(`No products found for "${selectedValue}". Try searching for brands like Apple, Nike, Samsung, or categories like Smartphones, Footwear, Laptops.`);
+        }
+      } catch (err) {
+        console.error('Product search error:', err);
+        setError('Search failed. Please try again or check your connection.');
+      } finally {
+        setSearchLoading(false);
+      }
+    }
+  }, [updateProduct]);
+
+  const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -44,14 +109,22 @@ const Dashboard = () => {
         
         // Calculate dynamic values from database
         const totalMentions = productData.sentiment_summary?.total_mentions || 0;
+        const positiveMentions = productData.sentiment_summary?.positive || 0;
+        const negativeMentions = productData.sentiment_summary?.negative || 0;
+        const neutralMentions = productData.sentiment_summary?.neutral || 0;
         const todayReviews = Math.floor(totalMentions * 0.1);
         const avgScore = productData.sentiment_summary?.avg_score || 0;
         
+        // Calculate proper percentages
+        const positivePercent = totalMentions > 0 ? Math.round((positiveMentions / totalMentions) * 100 * 10) / 10 : 0;
+        const negativePercent = totalMentions > 0 ? Math.round((negativeMentions / totalMentions) * 100 * 10) / 10 : 0;
+        const neutralPercent = totalMentions > 0 ? Math.round((neutralMentions / totalMentions) * 100 * 10) / 10 : 0;
+        
         setDashboardData({
           totalReviews: totalMentions,
-          positivePercent: productData.sentiment_summary?.positive || 0,
-          negativePercent: productData.sentiment_summary?.negative || 0,
-          neutralPercent: productData.sentiment_summary?.neutral || 0,
+          positivePercent: positivePercent,
+          negativePercent: negativePercent,
+          neutralPercent: neutralPercent,
           todayReviews: todayReviews,
           weeklyGrowth: Math.round((avgScore * 20) + Math.random() * 10), // Dynamic based on sentiment
           monthlyGrowth: Math.round((avgScore * 15) + Math.random() * 8), // Dynamic based on sentiment
@@ -65,24 +138,22 @@ const Dashboard = () => {
           ],
         });
       } else {
-        // Try to get general dashboard data from database
-        const dashboardOverview = await apiService.getDashboardOverview();
-        if (dashboardOverview && dashboardOverview.totalReviews > 0) {
-          console.log('✅ Using real database data for general dashboard');
-          setDashboardData(dashboardOverview);
-        } else {
-          console.log('⚠️ No real data available, using fallback');
-          setDashboardData(null); // This will trigger the dummy data fallback
-        }
+        // No product selected - keep dashboard empty
+        console.log('ℹ️ No product selected - dashboard will remain empty');
+        setDashboardData(null);
       }
     } catch (err) {
       setError('Failed to load dashboard data');
       console.error('Dashboard data fetch error:', err);
-      setDashboardData(null); // This will trigger the dummy data fallback
+      setDashboardData(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedProduct, productData]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   if (loading) {
     return (
@@ -100,23 +171,120 @@ const Dashboard = () => {
     );
   }
 
-  const data = dashboardData || {
-    totalReviews: 15847,
-    positivePercent: 68.2,
-    negativePercent: 18.5,
-    neutralPercent: 13.3,
-    todayReviews: 342,
-    weeklyGrowth: 12.5,
-    monthlyGrowth: 8.3,
-    avgResponseTime: '2.4 hours',
-    customerSatisfaction: 4.2,
-    topPositiveTopics: ['Product Quality', 'Fast Delivery', 'Great Support'],
-    topNegativeTopics: ['Pricing', 'Website Issues', 'Slow Response'],
-    recentAlerts: [
-      { type: 'warning', message: 'Negative sentiment spike detected at 14:30', time: '2 hours ago' },
-      { type: 'info', message: 'New positive trend in Product Quality mentions', time: '4 hours ago' },
-    ],
-  };
+  // If no data available, show empty state
+  if (!dashboardData) {
+    return (
+      <motion.div
+        initial="hidden"
+        animate="visible"
+        variants={containerVariants}
+      >
+        <motion.div variants={itemVariants}>
+          <Typography variant="h4" gutterBottom>
+            Dashboard Overview
+          </Typography>
+          
+          {/* Product Search Bar */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >
+            <Paper 
+              sx={{ 
+                p: 2, 
+                mb: 3, 
+                background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+                borderRadius: 2
+              }}
+            >
+              <Typography variant="h6" gutterBottom sx={{ mb: 2, color: 'text.primary' }}>
+                Search for a Product
+              </Typography>
+              <Autocomplete
+                freeSolo
+                options={searchSuggestions}
+                loading={searchLoading}
+                onInputChange={handleSearchInputChange}
+                onChange={handleProductSelect}
+                value={searchQuery}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Search for products (e.g., iPhone, Nike, Samsung, MacBook...)"
+                    variant="outlined"
+                    fullWidth
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search color="action" />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <>
+                          {searchLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box component="li" {...props}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                      <PhoneAndroid sx={{ mr: 1, color: 'text.secondary' }} />
+                      <Typography variant="body1">{option}</Typography>
+                    </Box>
+                  </Box>
+                )}
+                noOptionsText="No products found. Try searching for brands like Apple, Nike, Samsung..."
+                sx={{
+                  '& .MuiAutocomplete-inputRoot': {
+                    backgroundColor: 'white',
+                    borderRadius: 1,
+                  },
+                }}
+              />
+              <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+                Search for any product to view its sentiment analysis dashboard
+              </Typography>
+            </Paper>
+          </motion.div>
+        </motion.div>
+
+        {/* Empty State Message */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        >
+          <Paper 
+            sx={{ 
+              p: 6, 
+              textAlign: 'center',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              borderRadius: 2
+            }}
+          >
+            <PhoneAndroid sx={{ fontSize: 80, mb: 2, opacity: 0.9 }} />
+            <Typography variant="h4" gutterBottom>
+              No Product Selected
+            </Typography>
+            <Typography variant="body1" sx={{ mb: 3, opacity: 0.9 }}>
+              Search for a product above to view its sentiment analysis, reviews, and insights.
+            </Typography>
+            <Typography variant="body2" sx={{ opacity: 0.8 }}>
+              Try searching for popular brands like Apple, Nike, Samsung, Tesla, or product names like iPhone, MacBook, Air Max, etc.
+            </Typography>
+          </Paper>
+        </motion.div>
+      </motion.div>
+    );
+  }
+
+  const data = dashboardData;
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -182,6 +350,74 @@ const Dashboard = () => {
             </Button>
           )}
         </Box>
+        
+        {/* Product Search Bar */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <Paper 
+            sx={{ 
+              p: 2, 
+              mb: 3, 
+              background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+              borderRadius: 2
+            }}
+          >
+            <Typography variant="h6" gutterBottom sx={{ mb: 2, color: 'text.primary' }}>
+              Search for a Product
+            </Typography>
+            <Autocomplete
+              freeSolo
+              options={searchSuggestions}
+              loading={searchLoading}
+              onInputChange={handleSearchInputChange}
+              onChange={handleProductSelect}
+              value={searchQuery}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Search for products (e.g., iPhone, Nike, Samsung, MacBook...)"
+                  variant="outlined"
+                  fullWidth
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search color="action" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <>
+                        {searchLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+              renderOption={(props, option) => (
+                <Box component="li" {...props}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                    <PhoneAndroid sx={{ mr: 1, color: 'text.secondary' }} />
+                    <Typography variant="body1">{option}</Typography>
+                  </Box>
+                </Box>
+              )}
+              noOptionsText="No products found. Try searching for brands like Apple, Nike, Samsung..."
+              sx={{
+                '& .MuiAutocomplete-inputRoot': {
+                  backgroundColor: 'white',
+                  borderRadius: 1,
+                },
+              }}
+            />
+            <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+              Search for any product to view its sentiment analysis dashboard
+            </Typography>
+          </Paper>
+        </motion.div>
         
         {selectedProduct && (
           <motion.div

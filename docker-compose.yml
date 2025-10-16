@@ -24,7 +24,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-    command: --default-authentication-plugin=mysql_native_password --innodb-buffer-pool-size=256M --innodb-log-file-size=64M --innodb-flush-log-at-trx-commit=2 --innodb-flush-method=O_DIRECT
+    command: --default-authentication-plugin=mysql_native_password --bind-address=0.0.0.0
 
   # FastAPI Backend
   backend:
@@ -87,10 +87,15 @@ services:
     container_name: brandpulse-database-api
     environment:
       - DATABASE_URL=mysql://brandpulse_user:brandpulse_password@database:3306/brandpulse
-      - API_PORT=8001
+      - DB_HOST=database
+      - DB_PORT=3306
+      - DB_USER=brandpulse_user
+      - DB_PASSWORD=brandpulse_password
+      - DB_NAME=brandpulse
+      - API_PORT=8002
       - LOG_LEVEL=info
     ports:
-      - "8001:8001"
+      - "8001:8002"
     depends_on:
       database:
         condition: service_healthy
@@ -98,7 +103,7 @@ services:
       - brandpulse-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/health')"]
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8002/health')"]
       interval: 30s
       timeout: 10s
       retries: 5

@@ -15,8 +15,10 @@ import {
   Chip,
 } from '@mui/material';
 import { apiService } from '../services/api';
+import { useProduct } from '../contexts/ProductContext';
 
 const Timeline = () => {
+  const { selectedProduct, productData } = useProduct();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [timelineData, setTimelineData] = useState(null);
@@ -28,24 +30,19 @@ const Timeline = () => {
       setLoading(true);
       setError(null);
       
-      // Try to get real data from database API first
-      try {
-        const timelineResponse = await apiService.getTimelineData(timeRange, granularity);
-        if (timelineResponse && timelineResponse.timeline && timelineResponse.timeline.length > 0) {
-          console.log('✅ Using real database data for timeline');
-          setTimelineData(timelineResponse);
-          return;
-        }
-      } catch (dbError) {
-        console.warn('Database timeline failed, using fallback:', dbError);
+      // Try to get real data from database API
+      const timelineResponse = await apiService.getTimelineData(timeRange, granularity);
+      if (timelineResponse && timelineResponse.timeline && timelineResponse.timeline.length > 0) {
+        console.log('✅ Using real database data for timeline');
+        setTimelineData(timelineResponse);
+      } else {
+        console.log('ℹ️ No timeline data available');
+        setTimelineData(null);
       }
-      
-      console.log('⚠️ No real data available, using fallback');
-      setTimelineData(null); // This will trigger the dummy data fallback
     } catch (err) {
       setError('Failed to load timeline data');
       console.error('Timeline data fetch error:', err);
-      setTimelineData(null); // This will trigger the dummy data fallback
+      setTimelineData(null);
     } finally {
       setLoading(false);
     }
@@ -71,49 +68,69 @@ const Timeline = () => {
     );
   }
 
-  const data = timelineData || {
-    summary: {
-      avgPositive: 68.5,
-      avgNegative: 18.2,
-      avgNeutral: 13.3,
-      trend: 'increasing',
-      peakHour: '14:00',
-      lowHour: '02:00',
-      totalVolume: 15420,
-      peakVolume: 1250,
-      avgResponseTime: '2.3 hours',
-      satisfactionScore: 4.2,
-    },
-    hourlyData: [
-      { hour: '00:00', positive: 45, negative: 30, neutral: 25, volume: 120 },
-      { hour: '02:00', positive: 42, negative: 32, neutral: 26, volume: 95 },
-      { hour: '04:00', positive: 40, negative: 35, neutral: 25, volume: 80 },
-      { hour: '06:00', positive: 48, negative: 28, neutral: 24, volume: 150 },
-      { hour: '08:00', positive: 55, negative: 25, neutral: 20, volume: 280 },
-      { hour: '10:00', positive: 62, negative: 22, neutral: 16, volume: 450 },
-      { hour: '12:00', positive: 68, negative: 18, neutral: 14, volume: 680 },
-      { hour: '14:00', positive: 72, negative: 15, neutral: 13, volume: 850 },
-      { hour: '16:00', positive: 70, negative: 17, neutral: 13, volume: 750 },
-      { hour: '18:00', positive: 65, negative: 20, neutral: 15, volume: 620 },
-      { hour: '20:00', positive: 58, negative: 25, neutral: 17, volume: 480 },
-      { hour: '22:00', positive: 52, negative: 28, neutral: 20, volume: 320 },
-    ],
-    dailyData: [
-      { date: '2024-01-09', positive: 65, negative: 20, neutral: 15, volume: 1200 },
-      { date: '2024-01-10', positive: 68, negative: 18, neutral: 14, volume: 1350 },
-      { date: '2024-01-11', positive: 70, negative: 17, neutral: 13, volume: 1420 },
-      { date: '2024-01-12', positive: 72, negative: 15, neutral: 13, volume: 1580 },
-      { date: '2024-01-13', positive: 69, negative: 19, neutral: 12, volume: 1450 },
-      { date: '2024-01-14', positive: 71, negative: 16, neutral: 13, volume: 1520 },
-      { date: '2024-01-15', positive: 73, negative: 14, neutral: 13, volume: 1680 },
-    ],
-    weeklyData: [
-      { week: 'Week 1', positive: 62, negative: 22, neutral: 16, volume: 8500 },
-      { week: 'Week 2', positive: 65, negative: 20, neutral: 15, volume: 9200 },
-      { week: 'Week 3', positive: 68, negative: 18, neutral: 14, volume: 9800 },
-      { week: 'Week 4', positive: 71, negative: 16, neutral: 13, volume: 10500 },
-    ],
-  };
+  // If no timeline data, show empty state
+  if (!timelineData) {
+    return (
+      <Box>
+        <Typography variant="h4" gutterBottom>
+          Sentiment Timeline
+        </Typography>
+
+        {/* Filters */}
+        <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
+          <FormControl sx={{ minWidth: 200 }}>
+            <InputLabel>Time Range</InputLabel>
+            <Select
+              value={timeRange}
+              label="Time Range"
+              onChange={(e) => setTimeRange(e.target.value)}
+            >
+              <MenuItem value="24h">Last 24 Hours</MenuItem>
+              <MenuItem value="7d">Last 7 Days</MenuItem>
+              <MenuItem value="30d">Last 30 Days</MenuItem>
+              <MenuItem value="90d">Last 90 Days</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl sx={{ minWidth: 200 }}>
+            <InputLabel>Granularity</InputLabel>
+            <Select
+              value={granularity}
+              label="Granularity"
+              onChange={(e) => setGranularity(e.target.value)}
+            >
+              <MenuItem value="hourly">Hourly</MenuItem>
+              <MenuItem value="daily">Daily</MenuItem>
+              <MenuItem value="weekly">Weekly</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+
+        {/* Empty State Message */}
+        <Paper 
+          sx={{ 
+            p: 6, 
+            textAlign: 'center',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            borderRadius: 2
+          }}
+        >
+          <Typography variant="h4" gutterBottom>
+            No Timeline Data Available
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 3, opacity: 0.9 }}>
+            Timeline data is not available at the moment. This could be because there is no sentiment data in the database yet.
+          </Typography>
+          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            Timeline shows sentiment trends over time. Make sure products have sentiment data to see the timeline here.
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
+
+  const data = timelineData;
 
   const getTrendColor = (trend) => {
     switch (trend) {

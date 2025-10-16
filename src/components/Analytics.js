@@ -49,23 +49,30 @@ const Analytics = () => {
       setLoading(true);
       setError(null);
       
-      // Try to get real data from database API first
-      const analyticsData = await apiService.getAnalyticsData(timeRange, channel);
-      if (analyticsData && analyticsData.summary && analyticsData.summary.totalMentions > 0) {
-        console.log('✅ Using real database data for analytics');
-        setAnalyticsData(analyticsData);
+      // Only fetch analytics data if there's a selected product
+      if (contextProduct) {
+        // Try to get real data from database API first
+        const analyticsData = await apiService.getAnalyticsData(timeRange, channel);
+        if (analyticsData && analyticsData.channelBreakdown && analyticsData.channelBreakdown.length > 0) {
+          console.log('✅ Using real database data for analytics');
+          setAnalyticsData(analyticsData);
+        } else {
+          console.log('⚠️ No real data available for selected product');
+          setAnalyticsData(null);
+        }
       } else {
-        console.log('⚠️ No real data available, using fallback');
-        setAnalyticsData(null); // This will trigger the dummy data fallback
+        // No product selected - keep analytics empty
+        console.log('ℹ️ No product selected - analytics will remain empty');
+        setAnalyticsData(null);
       }
     } catch (err) {
       setError('Failed to load analytics data');
       console.error('Analytics data fetch error:', err);
-      setAnalyticsData(null); // This will trigger the dummy data fallback
+      setAnalyticsData(null);
     } finally {
       setLoading(false);
     }
-  }, [timeRange, channel]);
+  }, [timeRange, channel, contextProduct]);
 
   const handleProductSearch = async (query) => {
     if (query.length > 1) {
@@ -141,52 +148,163 @@ const Analytics = () => {
     );
   }
 
-  const data = analyticsData || {
-    channelBreakdown: [
-      { channel: 'Twitter', positive: 45, negative: 30, neutral: 25, total: 1000, engagement: 8.5 },
-      { channel: 'Facebook', positive: 60, negative: 20, neutral: 20, total: 800, engagement: 12.3 },
-      { channel: 'Instagram', positive: 70, negative: 15, neutral: 15, total: 600, engagement: 15.7 },
-      { channel: 'Reviews', positive: 55, negative: 25, neutral: 20, total: 1200, engagement: 6.2 },
-      { channel: 'YouTube', positive: 65, negative: 20, neutral: 15, total: 400, engagement: 18.9 },
-      { channel: 'Reddit', positive: 40, negative: 35, neutral: 25, total: 300, engagement: 22.1 },
-    ],
-    recentReviews: [
-      { id: 1, text: 'Great product, highly recommend! The quality exceeded my expectations.', sentiment: 'positive', channel: 'Twitter', timestamp: '2024-01-15 10:30', score: 0.95 },
-      { id: 2, text: 'Not satisfied with the quality. Expected better for the price.', sentiment: 'negative', channel: 'Facebook', timestamp: '2024-01-15 09:15', score: 0.15 },
-      { id: 3, text: 'Average experience, nothing special but gets the job done.', sentiment: 'neutral', channel: 'Reviews', timestamp: '2024-01-15 08:45', score: 0.52 },
-      { id: 4, text: 'Amazing service and fast delivery! Customer support was excellent.', sentiment: 'positive', channel: 'Instagram', timestamp: '2024-01-15 07:20', score: 0.89 },
-      { id: 5, text: 'Could be better, had some issues with the interface.', sentiment: 'negative', channel: 'Twitter', timestamp: '2024-01-15 06:10', score: 0.25 },
-      { id: 6, text: 'Love the new features! This update is exactly what I needed.', sentiment: 'positive', channel: 'YouTube', timestamp: '2024-01-15 05:30', score: 0.92 },
-      { id: 7, text: 'Decent product but the pricing could be more competitive.', sentiment: 'neutral', channel: 'Reddit', timestamp: '2024-01-15 04:45', score: 0.48 },
-      { id: 8, text: 'Terrible customer service. Waited 2 hours for a response.', sentiment: 'negative', channel: 'Facebook', timestamp: '2024-01-15 03:20', score: 0.08 },
-      { id: 9, text: 'Outstanding quality! Will definitely buy again.', sentiment: 'positive', channel: 'Reviews', timestamp: '2024-01-15 02:15', score: 0.97 },
-      { id: 10, text: 'Good product overall, minor issues with delivery.', sentiment: 'neutral', channel: 'Instagram', timestamp: '2024-01-15 01:30', score: 0.61 },
-    ],
-    hourlyTrend: [
-      { hour: '00:00', positive: 45, negative: 30, neutral: 25 },
-      { hour: '02:00', positive: 42, negative: 32, neutral: 26 },
-      { hour: '04:00', positive: 40, negative: 35, neutral: 25 },
-      { hour: '06:00', positive: 48, negative: 28, neutral: 24 },
-      { hour: '08:00', positive: 55, negative: 25, neutral: 20 },
-      { hour: '10:00', positive: 62, negative: 22, neutral: 16 },
-      { hour: '12:00', positive: 68, negative: 18, neutral: 14 },
-      { hour: '14:00', positive: 72, negative: 15, neutral: 13 },
-      { hour: '16:00', positive: 70, negative: 17, neutral: 13 },
-      { hour: '18:00', positive: 65, negative: 20, neutral: 15 },
-      { hour: '20:00', positive: 58, negative: 25, neutral: 17 },
-      { hour: '22:00', positive: 52, negative: 28, neutral: 20 },
-    ],
-    topKeywords: [
-      { word: 'quality', count: 1250, sentiment: 'positive' },
-      { word: 'price', count: 980, sentiment: 'negative' },
-      { word: 'delivery', count: 850, sentiment: 'positive' },
-      { word: 'support', count: 720, sentiment: 'mixed' },
-      { word: 'interface', count: 680, sentiment: 'negative' },
-      { word: 'features', count: 620, sentiment: 'positive' },
-      { word: 'bug', count: 580, sentiment: 'negative' },
-      { word: 'recommend', count: 520, sentiment: 'positive' },
-    ],
-  };
+  // If no analytics data, show empty state
+  if (!analyticsData) {
+    return (
+      <Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h4" gutterBottom>
+            Detailed Analytics
+          </Typography>
+        </Box>
+
+        {/* Product Search Section */}
+        <Paper sx={{ p: 2, mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Product-Specific Analytics
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Search for a specific product to view its sentiment analysis across all platforms
+          </Typography>
+          
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <Autocomplete
+              freeSolo
+              options={productSuggestions}
+              inputValue={productQuery}
+              onInputChange={(event, newInputValue) => {
+                setProductQuery(newInputValue);
+                handleProductSearch(newInputValue);
+              }}
+              onKeyPress={(event) => {
+                if (event.key === 'Enter' && productQuery) {
+                  handleProductSelect(productQuery);
+                }
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Search for a product (e.g., iPhone, Nike shoes, Tesla...)"
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />,
+                  }}
+                />
+              )}
+              sx={{ flexGrow: 1, maxWidth: 400 }}
+            />
+            <Button
+              variant="contained"
+              onClick={() => handleProductSelect(productQuery)}
+              disabled={!productQuery}
+            >
+              Search
+            </Button>
+          </Box>
+
+          {/* Product Analytics Results */}
+          {selectedProduct && productAnalytics && (
+            <Box sx={{ mt: 3 }}>
+              <Divider sx={{ mb: 2 }} />
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={8}>
+                  <Typography variant="h6" gutterBottom>
+                    {selectedProduct.name} - Sentiment Analysis
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={4}>
+                      <Card>
+                        <CardContent sx={{ textAlign: 'center' }}>
+                          <Typography variant="h4" color="success.main">
+                            {productAnalytics.summary.positive_mentions}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Positive Mentions
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Card>
+                        <CardContent sx={{ textAlign: 'center' }}>
+                          <Typography variant="h4" color="error.main">
+                            {productAnalytics.summary.negative_mentions}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Negative Mentions
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Card>
+                        <CardContent sx={{ textAlign: 'center' }}>
+                          <Typography variant="h4" color="warning.main">
+                            {productAnalytics.summary.neutral_mentions}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Neutral Mentions
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  </Grid>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="h6" gutterBottom>
+                    Platform Breakdown
+                  </Typography>
+                  {productAnalytics.channels.map((channel) => (
+                    <Box key={channel.channel} sx={{ mb: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2">{channel.channel}</Typography>
+                        <Typography variant="body2">{channel.total} mentions</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', height: 8, borderRadius: 1, overflow: 'hidden', mt: 0.5 }}>
+                        <Box sx={{ width: `${channel.positive}%`, backgroundColor: 'success.main' }} />
+                        <Box sx={{ width: `${channel.negative}%`, backgroundColor: 'error.main' }} />
+                        <Box sx={{ width: `${channel.neutral}%`, backgroundColor: 'warning.main' }} />
+                      </Box>
+                    </Box>
+                  ))}
+                </Grid>
+              </Grid>
+            </Box>
+          )}
+        </Paper>
+
+        {/* Empty State Message */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        >
+          <Paper 
+            sx={{ 
+              p: 6, 
+              textAlign: 'center',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              borderRadius: 2
+            }}
+          >
+            <SearchIcon sx={{ fontSize: 80, mb: 2, opacity: 0.9 }} />
+            <Typography variant="h4" gutterBottom>
+              No Analytics Data Available
+            </Typography>
+            <Typography variant="body1" sx={{ mb: 3, opacity: 0.9 }}>
+              Search for a product above to view detailed sentiment analysis, channel breakdowns, and review insights.
+            </Typography>
+            <Typography variant="body2" sx={{ opacity: 0.8 }}>
+              Try searching for popular brands like Apple, Nike, Samsung, Sony, or product names like iPhone, MacBook, Air Max, etc.
+            </Typography>
+          </Paper>
+        </motion.div>
+      </Box>
+    );
+  }
+
+  const data = analyticsData;
 
   const getSentimentColor = (sentiment) => {
     switch (sentiment) {
@@ -398,10 +516,65 @@ const Analytics = () => {
             <Typography variant="h6" gutterBottom>
               Sentiment by Channel
             </Typography>
-            <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography variant="body1" color="textSecondary">
-                Channel breakdown chart will be displayed here
-              </Typography>
+            <Box sx={{ height: 300, overflow: 'auto' }}>
+              {(data.channelBreakdown || []).map((channel, index) => (
+                <Box key={channel.channel} sx={{ mb: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="subtitle2">{channel.channel}</Typography>
+                    <Typography variant="caption">
+                      {channel.total} mentions
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', height: 20, borderRadius: 1, overflow: 'hidden' }}>
+                    <Box
+                      sx={{
+                        width: `${channel.positive}%`,
+                        backgroundColor: 'success.main',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ color: 'white', fontSize: '0.7rem' }}>
+                        {channel.positive}%
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        width: `${channel.negative}%`,
+                        backgroundColor: 'error.main',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ color: 'white', fontSize: '0.7rem' }}>
+                        {channel.negative}%
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        width: `${channel.neutral}%`,
+                        backgroundColor: 'warning.main',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ color: 'white', fontSize: '0.7rem' }}>
+                        {channel.neutral}%
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              ))}
+              {(!data.channelBreakdown || data.channelBreakdown.length === 0) && (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                  <Typography variant="body2" color="textSecondary">
+                    No channel data available
+                  </Typography>
+                </Box>
+              )}
             </Box>
           </Paper>
         </Grid>
@@ -412,10 +585,44 @@ const Analytics = () => {
             <Typography variant="h6" gutterBottom>
               Hourly Sentiment Trend
             </Typography>
-            <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography variant="body1" color="textSecondary">
-                Hourly trend chart will be displayed here
-              </Typography>
+            <Box sx={{ height: 300, overflow: 'auto' }}>
+              {(data.hourlyTrend || []).map((hourData, index) => (
+                <Box key={hourData.hour} sx={{ mb: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                    <Typography variant="caption">{hourData.hour}</Typography>
+                    <Typography variant="caption">
+                      {hourData.positive + hourData.negative + hourData.neutral} total
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', height: 12, borderRadius: 1, overflow: 'hidden' }}>
+                    <Box
+                      sx={{
+                        width: `${hourData.positive > 0 ? (hourData.positive / (hourData.positive + hourData.negative + hourData.neutral)) * 100 : 0}%`,
+                        backgroundColor: 'success.main',
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        width: `${hourData.negative > 0 ? (hourData.negative / (hourData.positive + hourData.negative + hourData.neutral)) * 100 : 0}%`,
+                        backgroundColor: 'error.main',
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        width: `${hourData.neutral > 0 ? (hourData.neutral / (hourData.positive + hourData.negative + hourData.neutral)) * 100 : 0}%`,
+                        backgroundColor: 'warning.main',
+                      }}
+                    />
+                  </Box>
+                </Box>
+              ))}
+              {(!data.hourlyTrend || data.hourlyTrend.length === 0) && (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                  <Typography variant="body2" color="textSecondary">
+                    No hourly trend data available
+                  </Typography>
+                </Box>
+              )}
             </Box>
           </Paper>
         </Grid>
@@ -462,6 +669,13 @@ const Analytics = () => {
                   />
                 </Box>
               ))}
+              {(!data.topKeywords || data.topKeywords.length === 0) && (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                  <Typography variant="body2" color="textSecondary">
+                    No keywords data available
+                  </Typography>
+                </Box>
+              )}
             </Box>
           </Paper>
         </Grid>
@@ -478,7 +692,7 @@ const Analytics = () => {
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                     <Typography variant="subtitle2">{channel.channel}</Typography>
                     <Typography variant="caption">
-                      {channel.total} reviews • {channel.engagement}% engagement
+                      {channel.total} reviews • {channel.engagement || 0}% engagement
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', height: 20, borderRadius: 1, overflow: 'hidden' }}>
@@ -524,6 +738,13 @@ const Analytics = () => {
                   </Box>
                 </Box>
               ))}
+              {(!data.channelBreakdown || data.channelBreakdown.length === 0) && (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                  <Typography variant="body2" color="textSecondary">
+                    No channel performance data available
+                  </Typography>
+                </Box>
+              )}
             </Box>
           </Paper>
         </Grid>
@@ -534,62 +755,72 @@ const Analytics = () => {
             <Typography variant="h6" gutterBottom>
               Recent Reviews
             </Typography>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Review Text</TableCell>
-                    <TableCell>Sentiment</TableCell>
-                    <TableCell>Score</TableCell>
-                    <TableCell>Channel</TableCell>
-                    <TableCell>Timestamp</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {(data.recentReviews || [])
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((review) => (
-                      <TableRow key={review.id}>
-                        <TableCell sx={{ maxWidth: 400 }}>
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {review.text}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={review.sentiment}
-                            color={getSentimentColor(review.sentiment)}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {(review.score * 100).toFixed(0)}%
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{review.channel}</TableCell>
-                        <TableCell>{review.timestamp}</TableCell>
+            {(!data.recentReviews || data.recentReviews.length === 0) ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}>
+                <Typography variant="body2" color="textSecondary">
+                  No recent reviews data available
+                </Typography>
+              </Box>
+            ) : (
+              <>
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Review Text</TableCell>
+                        <TableCell>Sentiment</TableCell>
+                        <TableCell>Score</TableCell>
+                        <TableCell>Channel</TableCell>
+                        <TableCell>Timestamp</TableCell>
                       </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={(data.recentReviews || []).length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-            />
+                    </TableHead>
+                    <TableBody>
+                      {(data.recentReviews || [])
+                        .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                        .map((review) => (
+                          <TableRow key={review.id}>
+                            <TableCell sx={{ maxWidth: 400 }}>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {review.text}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={review.sentiment}
+                                color={getSentimentColor(review.sentiment)}
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2">
+                                {(review.score * 100).toFixed(0)}%
+                              </Typography>
+                            </TableCell>
+                            <TableCell>{review.channel}</TableCell>
+                            <TableCell>{review.timestamp}</TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                <TablePagination
+                  rowsPerPageOptions={[5, 10, 25]}
+                  component="div"
+                  count={(data.recentReviews || []).length}
+                  rowsPerPage={rowsPerPage}
+                  page={page}
+                  onPageChange={handleChangePage}
+                  onRowsPerPageChange={handleChangeRowsPerPage}
+                />
+              </>
+            )}
           </Paper>
         </Grid>
       </Grid>
