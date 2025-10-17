@@ -19,6 +19,1223 @@ BrandPulse is a comprehensive brand analytics platform that combines AI-powered 
 
 ---
 
+## BrandPulse Complete System Architecture
+
+### High-Level System Architecture
+```mermaid
+graph TB
+    %% External Users and Systems
+    subgraph "External Systems"
+        USERS[👥 Users<br/>Analysts, Managers, Executives]
+        ADMIN[👨‍💼 Administrators<br/>System Management]
+    end
+    
+    subgraph "Data Sources"
+        AMAZON[🛒 Amazon<br/>Product Reviews]
+        TWITTER[🐦 Twitter<br/>Social Mentions]
+        REDDIT[🤖 Reddit<br/>Community Discussions]
+        YOUTUBE[📺 YouTube<br/>Video Reviews]
+        INSTAGRAM[📸 Instagram<br/>Visual Content]
+        GOOGLE[🔍 Google<br/>Shopping Reviews]
+        TIKTOK[🎵 TikTok<br/>Short Videos]
+        LINKEDIN[💼 LinkedIn<br/>Professional Reviews]
+    end
+    
+    %% Infrastructure Layer
+    subgraph "Infrastructure Layer"
+        NGINX[🌐 Nginx<br/>Reverse Proxy & Load Balancer<br/>Port: 3000]
+        DOCKER[🐳 Docker<br/>Container Orchestration]
+        NETWORK[🔗 Docker Network<br/>brandpulse-network]
+    end
+    
+    %% Application Layer
+    subgraph "Application Layer"
+        subgraph "Frontend Services"
+            REACT[⚛️ React Frontend<br/>Material-UI Components<br/>Port: 3000]
+        end
+        
+        subgraph "Backend Services"
+            FASTAPI[🚀 FastAPI Backend<br/>Main Application<br/>Port: 8000]
+            DBAPI[🗄️ Database API<br/>MySQL Interface<br/>Port: 8001]
+        end
+        
+        subgraph "AI Services"
+            GEMINI[🤖 Google Gemini<br/>AI Analysis Engine]
+            ADK[🧠 Google ADK<br/>Agent Development Kit]
+        end
+    end
+    
+    %% Data Layer
+    subgraph "Data Layer"
+        subgraph "Database Services"
+            MYSQL[🗃️ MySQL Database<br/>Primary Data Storage<br/>Port: 3306]
+        end
+        
+        subgraph "Data Processing"
+            CRAWLERS[🕷️ Web Crawlers<br/>Data Collection Engine]
+            SENTIMENT[📊 Sentiment Analysis<br/>AI Processing Pipeline]
+            ANALYTICS[📈 Analytics Engine<br/>Data Aggregation]
+        end
+    end
+    
+    %% Operations Layer
+    subgraph "Operations Layer"
+        MONITORING[📊 Monitoring<br/>Health Checks & Metrics]
+        LOGGING[📝 Logging<br/>Centralized Log Management]
+        SECURITY[🔒 Security<br/>Authentication & Authorization]
+    end
+    
+    %% User Interactions
+    USERS -->|Web Interface| NGINX
+    ADMIN -->|Management| NGINX
+    
+    %% Data Collection Flow
+    CRAWLERS -->|Collect Data| AMAZON
+    CRAWLERS -->|Collect Data| TWITTER
+    CRAWLERS -->|Collect Data| REDDIT
+    CRAWLERS -->|Collect Data| YOUTUBE
+    CRAWLERS -->|Collect Data| INSTAGRAM
+    CRAWLERS -->|Collect Data| GOOGLE
+    CRAWLERS -->|Collect Data| TIKTOK
+    CRAWLERS -->|Collect Data| LINKEDIN
+    
+    %% Infrastructure Flow
+    NGINX -->|Proxy Requests| REACT
+    NGINX -->|API Requests| FASTAPI
+    NGINX -->|DB Requests| DBAPI
+    
+    %% Application Flow
+    REACT -->|API Calls| FASTAPI
+    REACT -->|Data Queries| DBAPI
+    FASTAPI -->|AI Processing| GEMINI
+    FASTAPI -->|Agent Tasks| ADK
+    DBAPI -->|Database Operations| MYSQL
+    
+    %% Data Processing Flow
+    CRAWLERS -->|Raw Data| SENTIMENT
+    SENTIMENT -->|Processed Data| MYSQL
+    ANALYTICS -->|Aggregated Data| MYSQL
+    
+    %% Operations Flow
+    MONITORING -.->|Monitor| FASTAPI
+    MONITORING -.->|Monitor| DBAPI
+    MONITORING -.->|Monitor| MYSQL
+    LOGGING -.->|Collect Logs| FASTAPI
+    LOGGING -.->|Collect Logs| DBAPI
+    SECURITY -.->|Secure| NGINX
+    
+    %% Docker Network
+    DOCKER -->|Orchestrate| REACT
+    DOCKER -->|Orchestrate| FASTAPI
+    DOCKER -->|Orchestrate| DBAPI
+    DOCKER -->|Orchestrate| MYSQL
+    NETWORK -->|Connect| REACT
+    NETWORK -->|Connect| FASTAPI
+    NETWORK -->|Connect| DBAPI
+    NETWORK -->|Connect| MYSQL
+    
+    %% Styling
+    classDef userClass fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef sourceClass fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef infraClass fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef appClass fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef dataClass fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef opsClass fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    
+    class USERS,ADMIN userClass
+    class AMAZON,TWITTER,REDDIT,YOUTUBE,INSTAGRAM,GOOGLE,TIKTOK,LINKEDIN sourceClass
+    class NGINX,DOCKER,NETWORK infraClass
+    class REACT,FASTAPI,DBAPI,GEMINI,ADK appClass
+    class MYSQL,CRAWLERS,SENTIMENT,ANALYTICS dataClass
+    class MONITORING,LOGGING,SECURITY opsClass
+```
+
+### Detailed Component Architecture
+```mermaid
+graph TB
+    %% Frontend Components
+    subgraph "Frontend Layer (React + Material-UI)"
+        DASHBOARD[📊 Dashboard<br/>Overview & KPIs]
+        ANALYTICS[📈 Analytics<br/>Sentiment Analysis]
+        SEARCH[🔍 Product Search<br/>Search & Filter]
+        CRAWLERS[🕷️ Web Crawlers<br/>Management Interface]
+        TIMELINE[⏰ Timeline<br/>Historical Data]
+        TOPICS[🏷️ Topics<br/>Trending Topics]
+        CHAT[💬 Chat<br/>AI Assistant]
+        SETTINGS[⚙️ Settings<br/>Configuration]
+    end
+    
+    %% Backend Services
+    subgraph "Backend Services (FastAPI)"
+        subgraph "Main API (Port 8000)"
+            CHAT_API[💬 Chat API<br/>AI Conversations]
+            ANALYTICS_API[📊 Analytics API<br/>Sentiment Data]
+            PRODUCT_API[🛍️ Product API<br/>Product Management]
+            DASHBOARD_API[📈 Dashboard API<br/>Overview Data]
+        end
+        
+        subgraph "Database API (Port 8001)"
+            SEARCH_API[🔍 Search API<br/>Product Search]
+            SENTIMENT_API[📊 Sentiment API<br/>Review Data]
+            CRAWLER_API[🕷️ Crawler API<br/>Data Collection]
+        end
+    end
+    
+    %% AI Services
+    subgraph "AI Processing Layer"
+        GEMINI_AI[🤖 Google Gemini<br/>Text Analysis]
+        ADK_AGENTS[🧠 ADK Agents<br/>Task Automation]
+        SENTIMENT_ENGINE[📊 Sentiment Engine<br/>Score Calculation]
+    end
+    
+    %% Database Layer
+    subgraph "Database Layer (MySQL)"
+        PRODUCTS_TABLE[📦 Products Table<br/>Product Information]
+        REVIEWS_TABLE[📝 Reviews Table<br/>User Reviews]
+        SENTIMENT_TABLE[📊 Sentiment Table<br/>Analysis Results]
+        CRAWLER_TABLE[🕷️ Crawler Table<br/>Collection Status]
+        ANALYTICS_TABLE[📈 Analytics Table<br/>Aggregated Data]
+    end
+    
+    %% External Integrations
+    subgraph "External APIs"
+        AMAZON_API[🛒 Amazon API<br/>Product Reviews]
+        TWITTER_API[🐦 Twitter API<br/>Social Data]
+        REDDIT_API[🤖 Reddit API<br/>Community Data]
+        YOUTUBE_API[📺 YouTube API<br/>Video Data]
+    end
+    
+    %% Frontend to Backend
+    DASHBOARD -->|API Calls| DASHBOARD_API
+    ANALYTICS -->|API Calls| ANALYTICS_API
+    SEARCH -->|API Calls| SEARCH_API
+    CRAWLERS -->|API Calls| CRAWLER_API
+    CHAT -->|API Calls| CHAT_API
+    
+    %% Backend to Database
+    DASHBOARD_API -->|Query| ANALYTICS_TABLE
+    ANALYTICS_API -->|Query| SENTIMENT_TABLE
+    SEARCH_API -->|Query| PRODUCTS_TABLE
+    SENTIMENT_API -->|Query| REVIEWS_TABLE
+    CRAWLER_API -->|Query| CRAWLER_TABLE
+    
+    %% AI Processing
+    CHAT_API -->|Process| GEMINI_AI
+    ANALYTICS_API -->|Process| SENTIMENT_ENGINE
+    CRAWLER_API -->|Process| ADK_AGENTS
+    
+    %% External Data Collection
+    CRAWLER_API -->|Collect| AMAZON_API
+    CRAWLER_API -->|Collect| TWITTER_API
+    CRAWLER_API -->|Collect| REDDIT_API
+    CRAWLER_API -->|Collect| YOUTUBE_API
+    
+    %% Data Flow
+    AMAZON_API -->|Store| REVIEWS_TABLE
+    TWITTER_API -->|Store| REVIEWS_TABLE
+    REDDIT_API -->|Store| REVIEWS_TABLE
+    YOUTUBE_API -->|Store| REVIEWS_TABLE
+    
+    REVIEWS_TABLE -->|Process| SENTIMENT_ENGINE
+    SENTIMENT_ENGINE -->|Store| SENTIMENT_TABLE
+    
+    %% Styling
+    classDef frontendClass fill:#e3f2fd,stroke:#0277bd,stroke-width:2px
+    classDef backendClass fill:#fff8e1,stroke:#f57c00,stroke-width:2px
+    classDef aiClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef dbClass fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    classDef externalClass fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    
+    class DASHBOARD,ANALYTICS,SEARCH,CRAWLERS,TIMELINE,TOPICS,CHAT,SETTINGS frontendClass
+    class CHAT_API,ANALYTICS_API,PRODUCT_API,DASHBOARD_API,SEARCH_API,SENTIMENT_API,CRAWLER_API backendClass
+    class GEMINI_AI,ADK_AGENTS,SENTIMENT_ENGINE aiClass
+    class PRODUCTS_TABLE,REVIEWS_TABLE,SENTIMENT_TABLE,CRAWLER_TABLE,ANALYTICS_TABLE dbClass
+    class AMAZON_API,TWITTER_API,REDDIT_API,YOUTUBE_API externalClass
+```
+
+### Data Flow Architecture
+```mermaid
+sequenceDiagram
+    participant U as 👥 User
+    participant F as ⚛️ Frontend
+    participant N as 🌐 Nginx
+    participant B as 🚀 Backend API
+    participant D as 🗄️ Database API
+    participant DB as 🗃️ MySQL
+    participant AI as 🤖 AI Services
+    participant C as 🕷️ Crawlers
+    participant E as 🌍 External APIs
+    
+    %% User Request Flow
+    U->>F: Access Dashboard
+    F->>N: HTTP Request
+    N->>B: Proxy to Backend
+    B->>D: Database Query
+    D->>DB: SQL Query
+    DB-->>D: Data Response
+    D-->>B: API Response
+    B-->>N: JSON Response
+    N-->>F: HTTP Response
+    F-->>U: Render Dashboard
+    
+    %% AI Chat Flow
+    U->>F: Send Chat Message
+    F->>N: Chat API Request
+    N->>B: Proxy to Chat API
+    B->>AI: Process with Gemini
+    AI-->>B: AI Response
+    B-->>N: Chat Response
+    N-->>F: HTTP Response
+    F-->>U: Display AI Reply
+    
+    %% Data Collection Flow
+    C->>E: Collect Reviews
+    E-->>C: Raw Data
+    C->>D: Store Raw Data
+    D->>DB: Insert Reviews
+    C->>AI: Analyze Sentiment
+    AI-->>C: Sentiment Scores
+    C->>D: Store Analysis
+    D->>DB: Update Sentiment Table
+    
+    %% Analytics Flow
+    U->>F: Request Analytics
+    F->>N: Analytics API Request
+    N->>B: Proxy to Analytics API
+    B->>D: Query Sentiment Data
+    D->>DB: Aggregate Query
+    DB-->>D: Aggregated Data
+    D-->>B: Analytics Response
+    B-->>N: JSON Response
+    N-->>F: HTTP Response
+    F-->>U: Display Analytics
+```
+
+### Web Crawler Architecture
+```mermaid
+graph TB
+    subgraph "Web Crawler Management System"
+        CRAWLER_UI[🕷️ Crawler Management UI<br/>Configuration & Monitoring]
+        
+        subgraph "Crawler Services"
+            AMAZON_CRAWLER[🛒 Amazon Crawler<br/>Product Reviews]
+            TWITTER_CRAWLER[🐦 Twitter Crawler<br/>Social Mentions]
+            REDDIT_CRAWLER[🤖 Reddit Crawler<br/>Community Posts]
+            YOUTUBE_CRAWLER[📺 YouTube Crawler<br/>Video Comments]
+            INSTAGRAM_CRAWLER[📸 Instagram Crawler<br/>Post Analysis]
+            GOOGLE_CRAWLER[🔍 Google Crawler<br/>Shopping Reviews]
+            TIKTOK_CRAWLER[🎵 TikTok Crawler<br/>Video Content]
+            LINKEDIN_CRAWLER[💼 LinkedIn Crawler<br/>Professional Reviews]
+        end
+        
+        subgraph "Data Processing Pipeline"
+            COLLECTOR[📥 Data Collector<br/>Raw Data Ingestion]
+            PARSER[🔍 Data Parser<br/>Content Extraction]
+            FILTER[🔧 Data Filter<br/>Quality Control]
+            VALIDATOR[✅ Data Validator<br/>Format Validation]
+            ENRICHER[🎯 Data Enricher<br/>Metadata Addition]
+        end
+        
+        subgraph "Storage Layer"
+            RAW_STORAGE[🗄️ Raw Data Storage<br/>Unprocessed Content]
+            PROCESSED_STORAGE[📊 Processed Storage<br/>Structured Data]
+            ANALYTICS_STORAGE[📈 Analytics Storage<br/>Aggregated Metrics]
+        end
+        
+        subgraph "API Management"
+            TOKEN_MANAGER[🔑 API Token Manager<br/>Authentication]
+            RATE_LIMITER[⏱️ Rate Limiter<br/>Request Throttling]
+            ERROR_HANDLER[⚠️ Error Handler<br/>Failure Management]
+        end
+    end
+    
+    %% External Data Sources
+    subgraph "External Platforms"
+        AMAZON_API[🛒 Amazon API]
+        TWITTER_API[🐦 Twitter API]
+        REDDIT_API[🤖 Reddit API]
+        YOUTUBE_API[📺 YouTube API]
+        INSTAGRAM_API[📸 Instagram API]
+        GOOGLE_API[🔍 Google API]
+        TIKTOK_API[🎵 TikTok API]
+        LINKEDIN_API[💼 LinkedIn API]
+    end
+    
+    %% User Interface
+    CRAWLER_UI -->|Configure| AMAZON_CRAWLER
+    CRAWLER_UI -->|Configure| TWITTER_CRAWLER
+    CRAWLER_UI -->|Configure| REDDIT_CRAWLER
+    CRAWLER_UI -->|Configure| YOUTUBE_CRAWLER
+    CRAWLER_UI -->|Configure| INSTAGRAM_CRAWLER
+    CRAWLER_UI -->|Configure| GOOGLE_CRAWLER
+    CRAWLER_UI -->|Configure| TIKTOK_CRAWLER
+    CRAWLER_UI -->|Configure| LINKEDIN_CRAWLER
+    
+    %% Crawler Operations
+    AMAZON_CRAWLER -->|Collect| AMAZON_API
+    TWITTER_CRAWLER -->|Collect| TWITTER_API
+    REDDIT_CRAWLER -->|Collect| REDDIT_API
+    YOUTUBE_CRAWLER -->|Collect| YOUTUBE_API
+    INSTAGRAM_CRAWLER -->|Collect| INSTAGRAM_API
+    GOOGLE_CRAWLER -->|Collect| GOOGLE_API
+    TIKTOK_CRAWLER -->|Collect| TIKTOK_API
+    LINKEDIN_CRAWLER -->|Collect| LINKEDIN_API
+    
+    %% Data Processing Flow
+    AMAZON_CRAWLER -->|Raw Data| COLLECTOR
+    TWITTER_CRAWLER -->|Raw Data| COLLECTOR
+    REDDIT_CRAWLER -->|Raw Data| COLLECTOR
+    YOUTUBE_CRAWLER -->|Raw Data| COLLECTOR
+    INSTAGRAM_CRAWLER -->|Raw Data| COLLECTOR
+    GOOGLE_CRAWLER -->|Raw Data| COLLECTOR
+    TIKTOK_CRAWLER -->|Raw Data| COLLECTOR
+    LINKEDIN_CRAWLER -->|Raw Data| COLLECTOR
+    
+    COLLECTOR -->|Extract| PARSER
+    PARSER -->|Filter| FILTER
+    FILTER -->|Validate| VALIDATOR
+    VALIDATOR -->|Enrich| ENRICHER
+    
+    %% Storage Flow
+    COLLECTOR -->|Store| RAW_STORAGE
+    ENRICHER -->|Store| PROCESSED_STORAGE
+    ENRICHER -->|Aggregate| ANALYTICS_STORAGE
+    
+    %% API Management
+    TOKEN_MANAGER -.->|Authenticate| AMAZON_CRAWLER
+    TOKEN_MANAGER -.->|Authenticate| TWITTER_CRAWLER
+    TOKEN_MANAGER -.->|Authenticate| REDDIT_CRAWLER
+    TOKEN_MANAGER -.->|Authenticate| YOUTUBE_CRAWLER
+    TOKEN_MANAGER -.->|Authenticate| INSTAGRAM_CRAWLER
+    TOKEN_MANAGER -.->|Authenticate| GOOGLE_CRAWLER
+    TOKEN_MANAGER -.->|Authenticate| TIKTOK_CRAWLER
+    TOKEN_MANAGER -.->|Authenticate| LINKEDIN_CRAWLER
+    
+    RATE_LIMITER -.->|Throttle| AMAZON_CRAWLER
+    RATE_LIMITER -.->|Throttle| TWITTER_CRAWLER
+    RATE_LIMITER -.->|Throttle| REDDIT_CRAWLER
+    RATE_LIMITER -.->|Throttle| YOUTUBE_CRAWLER
+    RATE_LIMITER -.->|Throttle| INSTAGRAM_CRAWLER
+    RATE_LIMITER -.->|Throttle| GOOGLE_CRAWLER
+    RATE_LIMITER -.->|Throttle| TIKTOK_CRAWLER
+    RATE_LIMITER -.->|Throttle| LINKEDIN_CRAWLER
+    
+    ERROR_HANDLER -.->|Handle| AMAZON_CRAWLER
+    ERROR_HANDLER -.->|Handle| TWITTER_CRAWLER
+    ERROR_HANDLER -.->|Handle| REDDIT_CRAWLER
+    ERROR_HANDLER -.->|Handle| YOUTUBE_CRAWLER
+    ERROR_HANDLER -.->|Handle| INSTAGRAM_CRAWLER
+    ERROR_HANDLER -.->|Handle| GOOGLE_CRAWLER
+    ERROR_HANDLER -.->|Handle| TIKTOK_CRAWLER
+    ERROR_HANDLER -.->|Handle| LINKEDIN_CRAWLER
+    
+    %% Styling
+    classDef uiClass fill:#e3f2fd,stroke:#0277bd,stroke-width:2px
+    classDef crawlerClass fill:#fff8e1,stroke:#f57c00,stroke-width:2px
+    classDef processClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef storageClass fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    classDef apiClass fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef externalClass fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    
+    class CRAWLER_UI uiClass
+    class AMAZON_CRAWLER,TWITTER_CRAWLER,REDDIT_CRAWLER,YOUTUBE_CRAWLER,INSTAGRAM_CRAWLER,GOOGLE_CRAWLER,TIKTOK_CRAWLER,LINKEDIN_CRAWLER crawlerClass
+    class COLLECTOR,PARSER,FILTER,VALIDATOR,ENRICHER processClass
+    class RAW_STORAGE,PROCESSED_STORAGE,ANALYTICS_STORAGE storageClass
+    class TOKEN_MANAGER,RATE_LIMITER,ERROR_HANDLER apiClass
+    class AMAZON_API,TWITTER_API,REDDIT_API,YOUTUBE_API,INSTAGRAM_API,GOOGLE_API,TIKTOK_API,LINKEDIN_API externalClass
+```
+
+---
+
+### High-Level System Overview
+```mermaid
+graph TB
+    %% External Users and Systems
+    subgraph "External Systems"
+        USERS[👥 Users<br/>Analysts, Managers, Executives]
+        ADMIN[👨‍💼 Administrators<br/>System Management]
+    end
+    
+    subgraph "Data Sources"
+        AMAZON[🛒 Amazon<br/>Product Reviews]
+        TWITTER[🐦 Twitter<br/>Social Mentions]
+        REDDIT[🤖 Reddit<br/>Community Discussions]
+        YOUTUBE[📺 YouTube<br/>Video Reviews]
+        INSTAGRAM[📸 Instagram<br/>Visual Content]
+        GOOGLE[🔍 Google<br/>Shopping Reviews]
+        TIKTOK[🎵 TikTok<br/>Short Videos]
+        LINKEDIN[💼 LinkedIn<br/>Professional Reviews]
+    end
+    
+    %% Infrastructure Layer
+    subgraph "Infrastructure Layer"
+        NGINX[🌐 Nginx<br/>Reverse Proxy & Load Balancer<br/>Port: 3000]
+        DOCKER[🐳 Docker<br/>Container Orchestration]
+        NETWORK[🔗 Docker Network<br/>brandpulse-network]
+    end
+    
+    %% Application Layer
+    subgraph "Application Layer"
+        subgraph "Frontend Services"
+            REACT[⚛️ React Frontend<br/>Material-UI Components<br/>Port: 3000]
+        end
+        
+        subgraph "Backend Services"
+            FASTAPI[🚀 FastAPI Backend<br/>Main Application<br/>Port: 8000]
+            DBAPI[🗄️ Database API<br/>MySQL Interface<br/>Port: 8001]
+        end
+        
+        subgraph "AI Services"
+            GEMINI[🤖 Google Gemini<br/>AI Analysis Engine]
+            ADK[🧠 Google ADK<br/>Agent Development Kit]
+        end
+    end
+    
+    %% Data Layer
+    subgraph "Data Layer"
+        subgraph "Database Services"
+            MYSQL[🗃️ MySQL Database<br/>Primary Data Storage<br/>Port: 3306]
+        end
+        
+        subgraph "Data Processing"
+            CRAWLERS[🕷️ Web Crawlers<br/>Data Collection Engine]
+            SENTIMENT[📊 Sentiment Analysis<br/>AI Processing Pipeline]
+            ANALYTICS[📈 Analytics Engine<br/>Data Aggregation]
+        end
+    end
+    
+    %% Operations Layer
+    subgraph "Operations Layer"
+        MONITORING[📊 Monitoring<br/>Health Checks & Metrics]
+        LOGGING[📝 Logging<br/>Centralized Log Management]
+        SECURITY[🔒 Security<br/>Authentication & Authorization]
+    end
+    
+    %% User Interactions
+    USERS -->|Web Interface| NGINX
+    ADMIN -->|Management| NGINX
+    
+    %% Data Collection Flow
+    CRAWLERS -->|Collect Data| AMAZON
+    CRAWLERS -->|Collect Data| TWITTER
+    CRAWLERS -->|Collect Data| REDDIT
+    CRAWLERS -->|Collect Data| YOUTUBE
+    CRAWLERS -->|Collect Data| INSTAGRAM
+    CRAWLERS -->|Collect Data| GOOGLE
+    CRAWLERS -->|Collect Data| TIKTOK
+    CRAWLERS -->|Collect Data| LINKEDIN
+    
+    %% Infrastructure Flow
+    NGINX -->|Proxy Requests| REACT
+    NGINX -->|API Requests| FASTAPI
+    NGINX -->|DB Requests| DBAPI
+    
+    %% Application Flow
+    REACT -->|API Calls| FASTAPI
+    REACT -->|Data Queries| DBAPI
+    FASTAPI -->|AI Processing| GEMINI
+    FASTAPI -->|Agent Tasks| ADK
+    DBAPI -->|Database Operations| MYSQL
+    
+    %% Data Processing Flow
+    CRAWLERS -->|Raw Data| SENTIMENT
+    SENTIMENT -->|Processed Data| MYSQL
+    ANALYTICS -->|Aggregated Data| MYSQL
+    
+    %% Operations Flow
+    MONITORING -.->|Monitor| FASTAPI
+    MONITORING -.->|Monitor| DBAPI
+    MONITORING -.->|Monitor| MYSQL
+    LOGGING -.->|Collect Logs| FASTAPI
+    LOGGING -.->|Collect Logs| DBAPI
+    SECURITY -.->|Secure| NGINX
+    
+    %% Docker Network
+    DOCKER -->|Orchestrate| REACT
+    DOCKER -->|Orchestrate| FASTAPI
+    DOCKER -->|Orchestrate| DBAPI
+    DOCKER -->|Orchestrate| MYSQL
+    NETWORK -->|Connect| REACT
+    NETWORK -->|Connect| FASTAPI
+    NETWORK -->|Connect| DBAPI
+    NETWORK -->|Connect| MYSQL
+    
+    %% Styling
+    classDef userClass fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef sourceClass fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef infraClass fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef appClass fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef dataClass fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef opsClass fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    
+    class USERS,ADMIN userClass
+    class AMAZON,TWITTER,REDDIT,YOUTUBE,INSTAGRAM,GOOGLE,TIKTOK,LINKEDIN sourceClass
+    class NGINX,DOCKER,NETWORK infraClass
+    class REACT,FASTAPI,DBAPI,GEMINI,ADK appClass
+    class MYSQL,CRAWLERS,SENTIMENT,ANALYTICS dataClass
+    class MONITORING,LOGGING,SECURITY opsClass
+```
+
+### Detailed Component Architecture
+```mermaid
+graph TB
+    %% Frontend Components
+    subgraph "Frontend Layer (React + Material-UI)"
+        DASHBOARD[📊 Dashboard<br/>Overview & KPIs]
+        ANALYTICS[📈 Analytics<br/>Sentiment Analysis]
+        SEARCH[🔍 Product Search<br/>Search & Filter]
+        CRAWLERS[🕷️ Web Crawlers<br/>Management Interface]
+        TIMELINE[⏰ Timeline<br/>Historical Data]
+        TOPICS[🏷️ Topics<br/>Trending Topics]
+        CHAT[💬 Chat<br/>AI Assistant]
+        SETTINGS[⚙️ Settings<br/>Configuration]
+    end
+    
+    %% Backend Services
+    subgraph "Backend Services (FastAPI)"
+        subgraph "Main API (Port 8000)"
+            CHAT_API[💬 Chat API<br/>AI Conversations]
+            ANALYTICS_API[📊 Analytics API<br/>Sentiment Data]
+            PRODUCT_API[🛍️ Product API<br/>Product Management]
+            DASHBOARD_API[📈 Dashboard API<br/>Overview Data]
+        end
+        
+        subgraph "Database API (Port 8001)"
+            SEARCH_API[🔍 Search API<br/>Product Search]
+            SENTIMENT_API[📊 Sentiment API<br/>Review Data]
+            CRAWLER_API[🕷️ Crawler API<br/>Data Collection]
+        end
+    end
+    
+    %% AI Services
+    subgraph "AI Processing Layer"
+        GEMINI_AI[🤖 Google Gemini<br/>Text Analysis]
+        ADK_AGENTS[🧠 ADK Agents<br/>Task Automation]
+        SENTIMENT_ENGINE[📊 Sentiment Engine<br/>Score Calculation]
+    end
+    
+    %% Database Layer
+    subgraph "Database Layer (MySQL)"
+        PRODUCTS_TABLE[📦 Products Table<br/>Product Information]
+        REVIEWS_TABLE[📝 Reviews Table<br/>User Reviews]
+        SENTIMENT_TABLE[📊 Sentiment Table<br/>Analysis Results]
+        CRAWLER_TABLE[🕷️ Crawler Table<br/>Collection Status]
+        ANALYTICS_TABLE[📈 Analytics Table<br/>Aggregated Data]
+    end
+    
+    %% External Integrations
+    subgraph "External APIs"
+        AMAZON_API[🛒 Amazon API<br/>Product Reviews]
+        TWITTER_API[🐦 Twitter API<br/>Social Data]
+        REDDIT_API[🤖 Reddit API<br/>Community Data]
+        YOUTUBE_API[📺 YouTube API<br/>Video Data]
+    end
+    
+    %% Frontend to Backend
+    DASHBOARD -->|API Calls| DASHBOARD_API
+    ANALYTICS -->|API Calls| ANALYTICS_API
+    SEARCH -->|API Calls| SEARCH_API
+    CRAWLERS -->|API Calls| CRAWLER_API
+    CHAT -->|API Calls| CHAT_API
+    
+    %% Backend to Database
+    DASHBOARD_API -->|Query| ANALYTICS_TABLE
+    ANALYTICS_API -->|Query| SENTIMENT_TABLE
+    SEARCH_API -->|Query| PRODUCTS_TABLE
+    SENTIMENT_API -->|Query| REVIEWS_TABLE
+    CRAWLER_API -->|Query| CRAWLER_TABLE
+    
+    %% AI Processing
+    CHAT_API -->|Process| GEMINI_AI
+    ANALYTICS_API -->|Process| SENTIMENT_ENGINE
+    CRAWLER_API -->|Process| ADK_AGENTS
+    
+    %% External Data Collection
+    CRAWLER_API -->|Collect| AMAZON_API
+    CRAWLER_API -->|Collect| TWITTER_API
+    CRAWLER_API -->|Collect| REDDIT_API
+    CRAWLER_API -->|Collect| YOUTUBE_API
+    
+    %% Data Flow
+    AMAZON_API -->|Store| REVIEWS_TABLE
+    TWITTER_API -->|Store| REVIEWS_TABLE
+    REDDIT_API -->|Store| REVIEWS_TABLE
+    YOUTUBE_API -->|Store| REVIEWS_TABLE
+    
+    REVIEWS_TABLE -->|Process| SENTIMENT_ENGINE
+    SENTIMENT_ENGINE -->|Store| SENTIMENT_TABLE
+    
+    %% Styling
+    classDef frontendClass fill:#e3f2fd,stroke:#0277bd,stroke-width:2px
+    classDef backendClass fill:#fff8e1,stroke:#f57c00,stroke-width:2px
+    classDef aiClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef dbClass fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    classDef externalClass fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    
+    class DASHBOARD,ANALYTICS,SEARCH,CRAWLERS,TIMELINE,TOPICS,CHAT,SETTINGS frontendClass
+    class CHAT_API,ANALYTICS_API,PRODUCT_API,DASHBOARD_API,SEARCH_API,SENTIMENT_API,CRAWLER_API backendClass
+    class GEMINI_AI,ADK_AGENTS,SENTIMENT_ENGINE aiClass
+    class PRODUCTS_TABLE,REVIEWS_TABLE,SENTIMENT_TABLE,CRAWLER_TABLE,ANALYTICS_TABLE dbClass
+    class AMAZON_API,TWITTER_API,REDDIT_API,YOUTUBE_API externalClass
+```
+
+### Data Flow Architecture
+```mermaid
+sequenceDiagram
+    participant U as 👥 User
+    participant F as ⚛️ Frontend
+    participant N as 🌐 Nginx
+    participant B as 🚀 Backend API
+    participant D as 🗄️ Database API
+    participant DB as 🗃️ MySQL
+    participant AI as 🤖 AI Services
+    participant C as 🕷️ Crawlers
+    participant E as 🌍 External APIs
+    
+    %% User Request Flow
+    U->>F: Access Dashboard
+    F->>N: HTTP Request
+    N->>B: Proxy to Backend
+    B->>D: Database Query
+    D->>DB: SQL Query
+    DB-->>D: Data Response
+    D-->>B: API Response
+    B-->>N: JSON Response
+    N-->>F: HTTP Response
+    F-->>U: Render Dashboard
+    
+    %% AI Chat Flow
+    U->>F: Send Chat Message
+    F->>N: Chat API Request
+    N->>B: Proxy to Chat API
+    B->>AI: Process with Gemini
+    AI-->>B: AI Response
+    B-->>N: Chat Response
+    N-->>F: HTTP Response
+    F-->>U: Display AI Reply
+    
+    %% Data Collection Flow
+    C->>E: Collect Reviews
+    E-->>C: Raw Data
+    C->>D: Store Raw Data
+    D->>DB: Insert Reviews
+    C->>AI: Analyze Sentiment
+    AI-->>C: Sentiment Scores
+    C->>D: Store Analysis
+    D->>DB: Update Sentiment Table
+    
+    %% Analytics Flow
+    U->>F: Request Analytics
+    F->>N: Analytics API Request
+    N->>B: Proxy to Analytics API
+    B->>D: Query Sentiment Data
+    D->>DB: Aggregate Query
+    DB-->>D: Aggregated Data
+    D-->>B: Analytics Response
+    B-->>N: JSON Response
+    N-->>F: HTTP Response
+    F-->>U: Display Analytics
+```
+
+### Web Crawler Architecture
+```mermaid
+graph TB
+    subgraph "Web Crawler Management System"
+        CRAWLER_UI[🕷️ Crawler Management UI<br/>Configuration & Monitoring]
+        
+        subgraph "Crawler Services"
+            AMAZON_CRAWLER[🛒 Amazon Crawler<br/>Product Reviews]
+            TWITTER_CRAWLER[🐦 Twitter Crawler<br/>Social Mentions]
+            REDDIT_CRAWLER[🤖 Reddit Crawler<br/>Community Posts]
+            YOUTUBE_CRAWLER[📺 YouTube Crawler<br/>Video Comments]
+            INSTAGRAM_CRAWLER[📸 Instagram Crawler<br/>Post Analysis]
+            GOOGLE_CRAWLER[🔍 Google Crawler<br/>Shopping Reviews]
+            TIKTOK_CRAWLER[🎵 TikTok Crawler<br/>Video Content]
+            LINKEDIN_CRAWLER[💼 LinkedIn Crawler<br/>Professional Reviews]
+        end
+        
+        subgraph "Data Processing Pipeline"
+            COLLECTOR[📥 Data Collector<br/>Raw Data Ingestion]
+            PARSER[🔍 Data Parser<br/>Content Extraction]
+            FILTER[🔧 Data Filter<br/>Quality Control]
+            VALIDATOR[✅ Data Validator<br/>Format Validation]
+            ENRICHER[🎯 Data Enricher<br/>Metadata Addition]
+        end
+        
+        subgraph "Storage Layer"
+            RAW_STORAGE[🗄️ Raw Data Storage<br/>Unprocessed Content]
+            PROCESSED_STORAGE[📊 Processed Storage<br/>Structured Data]
+            ANALYTICS_STORAGE[📈 Analytics Storage<br/>Aggregated Metrics]
+        end
+        
+        subgraph "API Management"
+            TOKEN_MANAGER[🔑 API Token Manager<br/>Authentication]
+            RATE_LIMITER[⏱️ Rate Limiter<br/>Request Throttling]
+            ERROR_HANDLER[⚠️ Error Handler<br/>Failure Management]
+        end
+    end
+    
+    %% External Data Sources
+    subgraph "External Platforms"
+        AMAZON_API[🛒 Amazon API]
+        TWITTER_API[🐦 Twitter API]
+        REDDIT_API[🤖 Reddit API]
+        YOUTUBE_API[📺 YouTube API]
+        INSTAGRAM_API[📸 Instagram API]
+        GOOGLE_API[🔍 Google API]
+        TIKTOK_API[🎵 TikTok API]
+        LINKEDIN_API[💼 LinkedIn API]
+    end
+    
+    %% User Interface
+    CRAWLER_UI -->|Configure| AMAZON_CRAWLER
+    CRAWLER_UI -->|Configure| TWITTER_CRAWLER
+    CRAWLER_UI -->|Configure| REDDIT_CRAWLER
+    CRAWLER_UI -->|Configure| YOUTUBE_CRAWLER
+    CRAWLER_UI -->|Configure| INSTAGRAM_CRAWLER
+    CRAWLER_UI -->|Configure| GOOGLE_CRAWLER
+    CRAWLER_UI -->|Configure| TIKTOK_CRAWLER
+    CRAWLER_UI -->|Configure| LINKEDIN_CRAWLER
+    
+    %% Crawler Operations
+    AMAZON_CRAWLER -->|Collect| AMAZON_API
+    TWITTER_CRAWLER -->|Collect| TWITTER_API
+    REDDIT_CRAWLER -->|Collect| REDDIT_API
+    YOUTUBE_CRAWLER -->|Collect| YOUTUBE_API
+    INSTAGRAM_CRAWLER -->|Collect| INSTAGRAM_API
+    GOOGLE_CRAWLER -->|Collect| GOOGLE_API
+    TIKTOK_CRAWLER -->|Collect| TIKTOK_API
+    LINKEDIN_CRAWLER -->|Collect| LINKEDIN_API
+    
+    %% Data Processing Flow
+    AMAZON_CRAWLER -->|Raw Data| COLLECTOR
+    TWITTER_CRAWLER -->|Raw Data| COLLECTOR
+    REDDIT_CRAWLER -->|Raw Data| COLLECTOR
+    YOUTUBE_CRAWLER -->|Raw Data| COLLECTOR
+    INSTAGRAM_CRAWLER -->|Raw Data| COLLECTOR
+    GOOGLE_CRAWLER -->|Raw Data| COLLECTOR
+    TIKTOK_CRAWLER -->|Raw Data| COLLECTOR
+    LINKEDIN_CRAWLER -->|Raw Data| COLLECTOR
+    
+    COLLECTOR -->|Extract| PARSER
+    PARSER -->|Filter| FILTER
+    FILTER -->|Validate| VALIDATOR
+    VALIDATOR -->|Enrich| ENRICHER
+    
+    %% Storage Flow
+    COLLECTOR -->|Store| RAW_STORAGE
+    ENRICHER -->|Store| PROCESSED_STORAGE
+    ENRICHER -->|Aggregate| ANALYTICS_STORAGE
+    
+    %% API Management
+    TOKEN_MANAGER -.->|Authenticate| AMAZON_CRAWLER
+    TOKEN_MANAGER -.->|Authenticate| TWITTER_CRAWLER
+    TOKEN_MANAGER -.->|Authenticate| REDDIT_CRAWLER
+    TOKEN_MANAGER -.->|Authenticate| YOUTUBE_CRAWLER
+    TOKEN_MANAGER -.->|Authenticate| INSTAGRAM_CRAWLER
+    TOKEN_MANAGER -.->|Authenticate| GOOGLE_CRAWLER
+    TOKEN_MANAGER -.->|Authenticate| TIKTOK_CRAWLER
+    TOKEN_MANAGER -.->|Authenticate| LINKEDIN_CRAWLER
+    
+    RATE_LIMITER -.->|Throttle| AMAZON_CRAWLER
+    RATE_LIMITER -.->|Throttle| TWITTER_CRAWLER
+    RATE_LIMITER -.->|Throttle| REDDIT_CRAWLER
+    RATE_LIMITER -.->|Throttle| YOUTUBE_CRAWLER
+    RATE_LIMITER -.->|Throttle| INSTAGRAM_CRAWLER
+    RATE_LIMITER -.->|Throttle| GOOGLE_CRAWLER
+    RATE_LIMITER -.->|Throttle| TIKTOK_CRAWLER
+    RATE_LIMITER -.->|Throttle| LINKEDIN_CRAWLER
+    
+    ERROR_HANDLER -.->|Handle| AMAZON_CRAWLER
+    ERROR_HANDLER -.->|Handle| TWITTER_CRAWLER
+    ERROR_HANDLER -.->|Handle| REDDIT_CRAWLER
+    ERROR_HANDLER -.->|Handle| YOUTUBE_CRAWLER
+    ERROR_HANDLER -.->|Handle| INSTAGRAM_CRAWLER
+    ERROR_HANDLER -.->|Handle| GOOGLE_CRAWLER
+    ERROR_HANDLER -.->|Handle| TIKTOK_CRAWLER
+    ERROR_HANDLER -.->|Handle| LINKEDIN_CRAWLER
+    
+    %% Styling
+    classDef uiClass fill:#e3f2fd,stroke:#0277bd,stroke-width:2px
+    classDef crawlerClass fill:#fff8e1,stroke:#f57c00,stroke-width:2px
+    classDef processClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef storageClass fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    classDef apiClass fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef externalClass fill:#f1f8e9,stroke:#33691e,stroke-width:2px
+    
+    class CRAWLER_UI uiClass
+    class AMAZON_CRAWLER,TWITTER_CRAWLER,REDDIT_CRAWLER,YOUTUBE_CRAWLER,INSTAGRAM_CRAWLER,GOOGLE_CRAWLER,TIKTOK_CRAWLER,LINKEDIN_CRAWLER crawlerClass
+    class COLLECTOR,PARSER,FILTER,VALIDATOR,ENRICHER processClass
+    class RAW_STORAGE,PROCESSED_STORAGE,ANALYTICS_STORAGE storageClass
+    class TOKEN_MANAGER,RATE_LIMITER,ERROR_HANDLER apiClass
+    class AMAZON_API,TWITTER_API,REDDIT_API,YOUTUBE_API,INSTAGRAM_API,GOOGLE_API,TIKTOK_API,LINKEDIN_API externalClass
+```
+
+---
+
+## BrandPulse Database Schema Design (UML)
+
+### Entity Relationship Diagram - Actual Implementation
+```mermaid
+erDiagram
+    PRODUCTS {
+        int id PK
+        varchar name
+        varchar sku UK
+        text description
+        varchar category
+        varchar brand
+        decimal price
+        varchar url
+        varchar image_url
+        varchar status
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    PRODUCT_PAGES {
+        int id PK
+        int product_id FK
+        varchar url
+        varchar page_type
+        varchar platform
+        varchar title
+        text meta_description
+        text content_summary
+        timestamp last_crawled
+        varchar status
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    SENTIMENT_ANALYSIS {
+        int id PK
+        int product_id FK
+        int page_id FK
+        text text
+        varchar sentiment
+        float score
+        float confidence
+        varchar channel
+        varchar platform_specific_id
+        varchar user_id
+        timestamp timestamp
+        json topics
+        json keywords
+        json engagement_metrics
+        json metadata
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    PRODUCT_ANALYTICS {
+        int id PK
+        int product_id FK
+        date date
+        int total_mentions
+        int positive_mentions
+        int negative_mentions
+        int neutral_mentions
+        float avg_sentiment_score
+        int total_engagement
+        json channel_breakdown
+        json topic_breakdown
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    SEARCH_QUERIES {
+        int id PK
+        varchar query_text
+        int results_count
+        varchar user_session
+        timestamp timestamp
+        int execution_time_ms
+        json filters_applied
+    }
+    
+    PRODUCT_SEARCH_INDEX {
+        int id PK
+        int product_id FK
+        text search_text
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    %% Relationships
+    PRODUCTS ||--o{ PRODUCT_PAGES : "has_pages"
+    PRODUCTS ||--o{ SENTIMENT_ANALYSIS : "analyzed_in"
+    PRODUCTS ||--o{ PRODUCT_ANALYTICS : "tracked_by"
+    PRODUCTS ||--o{ PRODUCT_SEARCH_INDEX : "indexed_in"
+    PRODUCT_PAGES ||--o{ SENTIMENT_ANALYSIS : "contains_reviews"
+```
+
+### Complete Database Schema - Unified View
+```mermaid
+erDiagram
+    PRODUCTS {
+        int id PK "Primary Key"
+        varchar name "Product Name"
+        varchar sku UK "Unique SKU"
+        text description "Product Description"
+        varchar category "Product Category"
+        varchar brand "Brand Name"
+        decimal price "Price"
+        varchar url "Product URL"
+        varchar image_url "Image URL"
+        varchar status "Active/Inactive"
+        timestamp created_at "Creation Time"
+        timestamp updated_at "Last Update"
+    }
+    
+    PRODUCT_PAGES {
+        int id PK "Primary Key"
+        int product_id FK "References PRODUCTS"
+        varchar url "Page URL"
+        varchar page_type "Type of Page"
+        varchar platform "Platform Name"
+        varchar title "Page Title"
+        text meta_description "Meta Description"
+        text content_summary "Content Summary"
+        timestamp last_crawled "Last Crawl Time"
+        varchar status "Page Status"
+        timestamp created_at "Creation Time"
+        timestamp updated_at "Last Update"
+    }
+    
+    SENTIMENT_ANALYSIS {
+        int id PK "Primary Key"
+        int product_id FK "References PRODUCTS"
+        int page_id FK "References PRODUCT_PAGES"
+        text text "Review Text"
+        varchar sentiment "Positive/Negative/Neutral"
+        float score "Sentiment Score"
+        float confidence "Confidence Level"
+        varchar channel "Data Source Channel"
+        varchar platform_specific_id "Platform ID"
+        varchar user_id "User Identifier"
+        timestamp timestamp "Review Timestamp"
+        json topics "Extracted Topics"
+        json keywords "Keywords Array"
+        json engagement_metrics "Engagement Data"
+        json metadata "Additional Metadata"
+        timestamp created_at "Creation Time"
+        timestamp updated_at "Last Update"
+    }
+    
+    PRODUCT_ANALYTICS {
+        int id PK "Primary Key"
+        int product_id FK "References PRODUCTS"
+        date date "Analytics Date"
+        int total_mentions "Total Mentions"
+        int positive_mentions "Positive Count"
+        int negative_mentions "Negative Count"
+        int neutral_mentions "Neutral Count"
+        float avg_sentiment_score "Average Score"
+        int total_engagement "Total Engagement"
+        json channel_breakdown "Channel Statistics"
+        json topic_breakdown "Topic Statistics"
+        timestamp created_at "Creation Time"
+        timestamp updated_at "Last Update"
+    }
+    
+    SEARCH_QUERIES {
+        int id PK "Primary Key"
+        varchar query_text "Search Query"
+        int results_count "Number of Results"
+        varchar user_session "Session ID"
+        timestamp timestamp "Search Time"
+        int execution_time_ms "Query Execution Time"
+        json filters_applied "Applied Filters"
+    }
+    
+    PRODUCT_SEARCH_INDEX {
+        int id PK "Primary Key"
+        int product_id FK "References PRODUCTS"
+        text search_text "Searchable Text"
+        timestamp created_at "Creation Time"
+        timestamp updated_at "Last Update"
+    }
+    
+    %% Primary Relationships
+    PRODUCTS ||--o{ PRODUCT_PAGES : "has_pages"
+    PRODUCTS ||--o{ SENTIMENT_ANALYSIS : "analyzed_in"
+    PRODUCTS ||--o{ PRODUCT_ANALYTICS : "tracked_by"
+    PRODUCTS ||--o{ PRODUCT_SEARCH_INDEX : "indexed_in"
+    
+    %% Secondary Relationships
+    PRODUCT_PAGES ||--o{ SENTIMENT_ANALYSIS : "contains_reviews"
+    
+    %% Data Flow Relationships
+    SENTIMENT_ANALYSIS ||--o{ PRODUCT_ANALYTICS : "aggregated_into"
+    PRODUCTS ||--o{ SEARCH_QUERIES : "found_in"
+```
+
+---
+
+## BrandPulse Machine Learning Model Algorithm
+
+### Sentiment Analysis Pipeline - Implementation Overview
+```mermaid
+flowchart TD
+    subgraph "Data Collection & Preprocessing"
+        A[📥 Raw Text Input<br/>Reviews, Comments, Social Posts]
+        B[🔍 Text Preprocessing<br/>Clean, Tokenize, Normalize]
+        C[📊 Feature Extraction<br/>Word Embeddings + Metadata]
+    end
+    
+    subgraph "Model Processing"
+        D[🧠 BiLSTM + Attention<br/>Neural Network Architecture]
+        E[🎯 Sentiment Classification<br/>Positive/Negative/Neutral]
+        F[📈 Confidence Scoring<br/>Probability Distribution]
+    end
+    
+    subgraph "Data Storage & Analytics"
+        G[💾 Store Results<br/>sentiment_analysis table]
+        H[📊 Aggregate Analytics<br/>product_analytics table]
+        I[🔄 Real-time Updates<br/>Dashboard Refresh]
+    end
+    
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+    H --> I
+    
+    %% Styling
+    classDef dataClass fill:#e3f2fd,stroke:#0277bd,stroke-width:2px
+    classDef modelClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef storageClass fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    
+    class A,B,C dataClass
+    class D,E,F modelClass
+    class G,H,I storageClass
+```
+
+### ML Algorithm Implementation Steps
+
+#### **Phase 1: Data Collection & Preprocessing**
+1. **Text Input Processing**
+   - Collect reviews from multiple platforms (Amazon, Twitter, Reddit, YouTube, etc.)
+   - Extract text content, user information, and metadata
+   - Store raw data in `sentiment_analysis` table
+
+2. **Text Cleaning & Normalization**
+   - Remove HTML tags, URLs, special characters
+   - Convert to lowercase, handle contractions
+   - Tokenize text into words/phrases
+   - Remove stop words and noise
+
+3. **Feature Engineering**
+   - Convert text to numerical vectors using Word2Vec/GloVe
+   - Extract contextual features (product mentions, brand names)
+   - Create sequence matrices for neural network input
+
+#### **Phase 2: Model Architecture & Training**
+4. **BiLSTM Neural Network**
+   - Input Layer: Embedding layer (vocabulary_size × 128)
+   - Hidden Layer 1: Bidirectional LSTM (128 units)
+   - Hidden Layer 2: Bidirectional LSTM (64 units)
+   - Attention Layer: Self-attention mechanism
+   - Output Layer: Dense layer with softmax (3 classes)
+
+5. **Training Configuration**
+   - Loss Function: Categorical Cross-entropy
+   - Optimizer: Adam (learning_rate=0.001)
+   - Batch Size: 32 samples
+   - Early Stopping: patience=10 epochs
+   - Validation Split: 80% train, 20% validation
+
+#### **Phase 3: Prediction & Storage**
+6. **Real-time Sentiment Analysis**
+   - Process incoming text through trained model
+   - Generate sentiment classification (positive/negative/neutral)
+   - Calculate confidence scores and probabilities
+   - Extract keywords and topics
+
+7. **Database Storage**
+   - Store results in `sentiment_analysis` table
+   - Include: text, sentiment, score, confidence, channel, keywords
+   - Link to products via `product_id` and pages via `page_id`
+
+#### **Phase 4: Analytics & Aggregation**
+8. **Daily Analytics Aggregation**
+   - Calculate daily metrics per product
+   - Count mentions by sentiment type
+   - Compute average sentiment scores
+   - Track engagement metrics
+
+9. **Dashboard Data Preparation**
+   - Aggregate data for dashboard views
+   - Calculate trends and patterns
+   - Generate insights for product managers
+
+### **Algorithm Pseudocode**
+```python
+def analyze_sentiment(text_input, product_id, page_id, channel):
+    # Phase 1: Preprocessing
+    cleaned_text = clean_text(text_input)
+    tokens = tokenize(cleaned_text)
+    vectorized_input = vectorize(tokens)
+    
+    # Phase 2: Model Prediction
+    lstm_output = bilstm_model.predict(vectorized_input)
+    attention_weights = calculate_attention(lstm_output)
+    weighted_output = apply_attention(lstm_output, attention_weights)
+    
+    # Phase 3: Classification
+    probabilities = softmax(dense_layer(weighted_output))
+    sentiment = argmax(probabilities)
+    confidence = max(probabilities)
+    score = calculate_sentiment_score(probabilities)
+    
+    # Phase 4: Store Results
+    store_sentiment_analysis({
+        'product_id': product_id,
+        'page_id': page_id,
+        'text': text_input,
+        'sentiment': sentiment,
+        'score': score,
+        'confidence': confidence,
+        'channel': channel,
+        'keywords': extract_keywords(tokens),
+        'topics': extract_topics(tokens)
+    })
+    
+    return sentiment, score, confidence
+```
+
+### **Performance Metrics & Targets**
+- **Accuracy**: > 85% on test set
+- **Precision/Recall**: > 80% per sentiment class
+- **F1-Score**: > 82% weighted average
+- **Processing Time**: < 100ms per review
+- **Throughput**: > 1000 reviews/second
+- **Database Storage**: Optimized for 1M+ reviews
+
+### **Data Flow Integration**
+```mermaid
+sequenceDiagram
+    participant C as 🕷️ Crawler
+    participant ML as 🤖 ML Model
+    participant DB as 🗃️ Database
+    participant API as 🚀 API
+    participant UI as ⚛️ Frontend
+    
+    C->>ML: Raw review text
+    ML->>ML: Process & classify
+    ML->>DB: Store sentiment_analysis
+    DB->>API: Query aggregated data
+    API->>UI: Display analytics
+    UI->>API: User interactions
+    API->>DB: Update product_analytics
+```
+
+---
+
 ## System Architecture
 
 ### Unified High-Level System Overview

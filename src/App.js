@@ -27,6 +27,7 @@ import {
   Home as HomeIcon,
   Chat as ChatIcon,
   Search as SearchIcon,
+  Web as WebIcon,
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from './contexts/ThemeContext';
@@ -40,6 +41,7 @@ import Settings from './components/Settings';
 import LandingPage from './components/LandingPage';
 import Chat from './components/Chat';
 import ProductSearch from './components/ProductSearch';
+import WebCrawlers from './components/WebCrawlers';
 
 const drawerWidth = 240;
 
@@ -57,6 +59,7 @@ function App() {
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
     { text: 'Product Search', icon: <SearchIcon />, path: '/search' },
+    { text: 'Web Crawlers', icon: <WebIcon />, path: '/crawlers' },
     { text: 'Timeline', icon: <TimelineIcon />, path: '/timeline' },
     { text: 'Topics', icon: <TopicIcon />, path: '/topics' },
     { text: 'Chat', icon: <ChatIcon />, path: '/chat' },
@@ -296,6 +299,17 @@ function App() {
                   transition={{ duration: 0.4 }}
                 >
                   <ProductSearch />
+                </motion.div>
+              } />
+              <Route path="/crawlers" element={
+                <motion.div
+                  key="crawlers"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <WebCrawlers />
                 </motion.div>
               } />
               <Route path="/timeline" element={
