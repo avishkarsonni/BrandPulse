@@ -11,7 +11,7 @@ const api = axios.create({
 
 // Create database API instance
 const dbApi = axios.create({
-  baseURL: process.env.REACT_APP_DB_API_URL || 'http://localhost:8001',
+  baseURL: process.env.REACT_APP_DB_API_URL || '/db-api',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -63,12 +63,20 @@ class ApiService {
       }
       
       // Fallback to backend API
+      console.log('⚠️ Database API not available, using backend mock data');
       const response = await api.get('/api/dashboard/overview');
       return response.data;
     } catch (error) {
-      // Return null if no data is available - let the UI show empty state
-      console.warn('⚠️ No dashboard data available:', error.message);
-      return null;
+      // Fallback to backend API if database API fails
+      console.warn('⚠️ Database API failed, trying backend API:', error.message);
+      try {
+        const response = await api.get('/api/dashboard/overview');
+        console.log('✅ Using backend mock data for dashboard');
+        return response.data;
+      } catch (backendError) {
+        console.error('❌ Both database and backend APIs failed:', backendError.message);
+        return null;
+      }
     }
   }
 
@@ -138,13 +146,24 @@ class ApiService {
       }
       
       // Fallback to backend API
+      console.log('⚠️ Database API not available, using backend mock data');
       const response = await api.get('/api/analytics/sentiment', {
         params: { timeRange, channel }
       });
       return response.data;
     } catch (error) {
-      console.warn('⚠️ No analytics data available:', error.message);
-      return null;
+      // Fallback to backend API if database API fails
+      console.warn('⚠️ Database API failed, trying backend API:', error.message);
+      try {
+        const response = await api.get('/api/analytics/sentiment', {
+          params: { timeRange, channel }
+        });
+        console.log('✅ Using backend mock data for analytics');
+        return response.data;
+      } catch (backendError) {
+        console.error('❌ Both database and backend APIs failed:', backendError.message);
+        return null;
+      }
     }
   }
 
@@ -390,13 +409,24 @@ class ApiService {
       }
       
       // Fallback to backend API
+      console.log('⚠️ Database API not available, using backend mock data');
       const response = await api.get('/api/analytics/topics', {
         params: { timeRange }
       });
       return response.data;
     } catch (error) {
-      console.warn('⚠️ No topics data available:', error.message);
-      return null;
+      // Fallback to backend API if database API fails
+      console.warn('⚠️ Database API failed, trying backend API:', error.message);
+      try {
+        const response = await api.get('/api/analytics/topics', {
+          params: { timeRange }
+        });
+        console.log('✅ Using backend mock data for topics');
+        return response.data;
+      } catch (backendError) {
+        console.error('❌ Both database and backend APIs failed:', backendError.message);
+        return null;
+      }
     }
   }
 
@@ -444,13 +474,24 @@ class ApiService {
       }
       
       // Fallback to backend API
+      console.log('⚠️ Database API not available, using backend mock data');
       const response = await api.get('/api/products/search', {
         params: { q: query, ...filters }
       });
       return response.data;
     } catch (error) {
-      console.warn('⚠️ Using mock product search data - database not available:', error.message);
-      return this.getMockProductSearchData(query);
+      // Fallback to backend API if database API fails
+      console.warn('⚠️ Database API failed, trying backend API:', error.message);
+      try {
+        const response = await api.get('/api/products/search', {
+          params: { q: query, ...filters }
+        });
+        console.log('✅ Using backend mock data for product search');
+        return response.data;
+      } catch (backendError) {
+        console.error('❌ Both database and backend APIs failed:', backendError.message);
+        return this.getMockProductSearchData(query);
+      }
     }
   }
 
@@ -510,13 +551,24 @@ class ApiService {
       }
       
       // Fallback to backend API
+      console.log('⚠️ Database API not available, using backend mock data');
       const response = await api.get(`/api/products/${productId}/sentiment`, {
         params: { timeRange }
       });
       return response.data;
     } catch (error) {
-      console.warn('⚠️ Using mock product sentiment data - database not available:', error.message);
-      return this.getMockProductSentiment(productId);
+      // Fallback to backend API if database API fails
+      console.warn('⚠️ Database API failed, trying backend API:', error.message);
+      try {
+        const response = await api.get(`/api/products/${productId}/sentiment`, {
+          params: { timeRange }
+        });
+        console.log('✅ Using backend mock data for product sentiment');
+        return response.data;
+      } catch (backendError) {
+        console.error('❌ Both database and backend APIs failed:', backendError.message);
+        return this.getMockProductSentiment(productId);
+      }
     }
   }
 

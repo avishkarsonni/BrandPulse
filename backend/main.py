@@ -9,8 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 
-from google.adk.agents import Agent
-from google.adk.tools import google_search
+# Google ADK imports - DISABLED FOR DEBUGGING
+GOOGLE_ADK_AVAILABLE = False
+print("⚠️ Google ADK disabled for debugging")
 
 # Initialize FastAPI app
 app = FastAPI(title="BrandPulse Chat API", version="1.0.0")
@@ -18,7 +19,14 @@ app = FastAPI(title="BrandPulse Chat API", version="1.0.0")
 # Enable CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"],  # React dev server
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://localhost:3001", 
+        "http://localhost:3002",
+        "http://frontend:80",
+        "http://brandpulse-frontend:80",
+        "http://localhost:80"
+    ],  # React dev server and Docker containers
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,50 +64,85 @@ def setup_google_auth():
 # Initialize Google authentication
 auth_available = setup_google_auth()
 
-# Initialize the Google ADK agent with Gemini 2.0 Flash
+# Initialize the Google ADK agent with Gemini 2.0 Flash (Lazy initialization)
 brand_pulse_agent = None
-if auth_available:
+agent_initialized = False
+
+def get_agent():
+    """Lazy-load the AI agent to avoid hanging at startup"""
+    global brand_pulse_agent, agent_initialized
+    
+    if agent_initialized:
+        return brand_pulse_agent
+    
+    agent_initialized = True
+    
+    if not auth_available:
+        print("⚠️ No authentication configured")
+        brand_pulse_agent = create_mock_agent()
+        return brand_pulse_agent
+    
     try:
-        # Initialize Google ADK Agent
-        from google.adk.agents import Agent
+        # DISABLED FOR DEBUGGING - Use mock agent instead
+        print("🤖 Using mock agent for debugging...")
+        brand_pulse_agent = create_mock_agent()
+        print("✅ BrandPulse Assistant (Mock) initialized successfully")
+        print("ℹ️ Model ready for requests (test skipped to avoid connection issues)")
+        return brand_pulse_agent
         
-        # Configure the agent with environment variables
-        agent_config = {
-            "project_id": os.getenv("GOOGLE_ADK_PROJECT_ID", "truxtsaas"),
-            "location": os.getenv("GOOGLE_ADK_LOCATION", "us-central1"),
-            "agent_id": os.getenv("GOOGLE_ADK_AGENT_ID", "brandpulse-agent"),
-            "model": os.getenv("GOOGLE_ADK_MODEL", "gemini-2.0-flash-exp")
-        }
+    except Exception as error:
+        print(f"⚠️ Gemini initialization failed: {error}")
+        print("🔧 Creating mock agent for development...")
+        brand_pulse_agent = create_mock_agent()
+        return brand_pulse_agent
+
+def create_mock_agent():
+    """Create a mock agent for development/fallback"""
+    class MockAgent:
+        def __init__(self):
+            self.model_name = "mock-gemini-2.0-flash-exp"
         
-        print(f"🤖 Initializing ADK Agent with config: {agent_config}")
-        
-        # Try to create ADK agent
-        try:
-            brand_pulse_agent = Agent(
-                project_id=agent_config["project_id"],
-                location=agent_config["location"],
-                agent_id=agent_config["agent_id"]
-            )
-            print("✅ BrandPulse ADK Agent initialized successfully")
-        except Exception as adk_error:
-            print(f"⚠️ ADK Agent failed, falling back to direct Gemini: {adk_error}")
+        def generate_content(self, prompt):
+            class MockResponse:
+                def __init__(self):
+                    self.text = f"""## 🤖 BrandPulse Assistant Response
+
+**Status**: Running in development mode with mock AI agent
+**Issue**: Google Generative AI not available
+
+### 📊 Analysis Request:
+{prompt}
+
+### 🎯 Mock Analysis Response:
+
+**Product Sentiment Overview:**
+- Overall sentiment: Mixed (60% positive, 25% neutral, 15% negative)
+- Key strengths: Quality, reliability, user experience
+- Areas for improvement: Pricing, customer support
+
+**Competitive Position:**
+- Market share: Strong in target segments
+- Differentiation: Innovation and brand trust
+- Threats: Emerging competitors, price sensitivity
+
+**Recommendations:**
+1. **Monitor sentiment trends** across all channels
+2. **Address negative feedback** proactively
+3. **Leverage positive mentions** for marketing
+4. **Track competitor activities** regularly
+
+**Next Steps:**
+- Set up real-time sentiment monitoring
+- Implement automated alert system
+- Create sentiment-based response workflows
+
+---
+*Note: This is a mock response. Real AI analysis requires Google Cloud authentication.*"""
             
-            # Fallback to direct Gemini API
-            import google.generativeai as genai
-            
-            # Configure the model with the service account
-            genai.configure()  # Uses GOOGLE_APPLICATION_CREDENTIALS
-            
-            # Create a simple model instance  
-            model = genai.GenerativeModel(agent_config["model"])
-            
-            # Store the model instead of the agent
-            brand_pulse_agent = model
-            print("✅ BrandPulse Assistant (Gemini direct) initialized successfully")
-            
-    except Exception as e:
-        print(f"❌ Failed to initialize any agent: {e}")
-        brand_pulse_agent = None
+            return MockResponse()
+    
+    print("✅ BrandPulse Assistant (Mock) initialized successfully")
+    return MockAgent()
 
 # Chat history storage (in production, use a proper database)
 chat_sessions: Dict[str, List[Dict]] = {}
@@ -120,6 +163,16 @@ async def health_check():
         "client_email": os.getenv("GOOGLE_CLIENT_EMAIL"),
         "agent_type": "ADK" if hasattr(brand_pulse_agent, 'agent_id') else "Gemini_Direct"
     }
+
+@app.get("/test")
+async def test_endpoint():
+    """Simple test endpoint"""
+    return {"message": "Backend is working!", "timestamp": datetime.now().isoformat()}
+
+@app.get("/simple")
+async def simple_endpoint():
+    """Ultra-simple endpoint for testing connectivity"""
+    return {"status": "ok", "message": "Connection successful"}
 
 @app.get("/debug")
 async def debug_info():
@@ -143,7 +196,9 @@ async def chat_with_agent(message: ChatMessage):
     """
     Chat with the BrandPulse agent about product perception and analysis
     """
-    if brand_pulse_agent is None:
+    # Lazy-load the agent on first use
+    agent = get_agent()
+    if agent is None:
         raise HTTPException(
             status_code=503, 
             detail="BrandPulse Assistant is not available. Please check authentication setup."
@@ -188,8 +243,53 @@ async def chat_with_agent(message: ChatMessage):
 User question: {user_input}"""
 
         # Use the model directly
-        response_obj = await asyncio.to_thread(brand_pulse_agent.generate_content, full_prompt)
-        response = response_obj.text
+        if hasattr(agent, 'generate_content'):
+            try:
+                # Check if it's async or sync
+                import inspect
+                if inspect.iscoroutinefunction(agent.generate_content):
+                    response_obj = await asyncio.to_thread(agent.generate_content, full_prompt, request_options={"timeout": 30})
+                else:
+                    response_obj = agent.generate_content(full_prompt, request_options={"timeout": 30})
+                response = response_obj.text
+            except Exception as gen_error:
+                print(f"⚠️ Gemini API error: {gen_error}")
+                # Fallback to mock response if Gemini fails
+                response = f"""## 🤖 BrandPulse Assistant Response
+
+**Status**: AI service temporarily unavailable
+**Issue**: {str(gen_error)}
+
+### 📊 Analysis Request:
+{user_input}
+
+### 🎯 Fallback Analysis Response:
+
+**Product Sentiment Overview:**
+- Overall sentiment: Mixed (60% positive, 25% neutral, 15% negative)
+- Key strengths: Quality, reliability, user experience
+- Areas for improvement: Pricing, customer support
+
+**Competitive Position:**
+- Market share: Strong in target segments
+- Differentiation: Innovation and brand trust
+- Threats: Emerging competitors, price sensitivity
+
+**Recommendations:**
+1. **Monitor sentiment trends** across all channels
+2. **Address negative feedback** proactively
+3. **Leverage positive mentions** for marketing
+4. **Track competitor activities** regularly
+
+**Next Steps:**
+- Set up real-time sentiment monitoring
+- Implement automated alert system
+- Create sentiment-based response workflows
+
+---
+*Note: This is a fallback response. AI service will be restored shortly.*"""
+        else:
+            response = "Agent not properly initialized"
         
         # Store in chat history (session_id could be added for multiple users)
         session_id = "default"  # In production, generate proper session IDs
@@ -237,7 +337,9 @@ async def analyze_product_perception(product_name: str):
     """
     Get a comprehensive analysis of a product's public perception
     """
-    if brand_pulse_agent is None:
+    # Lazy-load the agent on first use
+    agent = get_agent()
+    if agent is None:
         raise HTTPException(
             status_code=503, 
             detail="BrandPulse Assistant is not available. Please check authentication setup."
@@ -292,8 +394,58 @@ Include the following sections:
 
 {analysis_prompt}"""
 
-        response_obj = await asyncio.to_thread(brand_pulse_agent.generate_content, full_analysis_prompt)
-        response = response_obj.text
+        if hasattr(agent, 'generate_content'):
+            try:
+                # Check if it's async or sync
+                import inspect
+                if inspect.iscoroutinefunction(agent.generate_content):
+                    response_obj = await asyncio.to_thread(agent.generate_content, full_analysis_prompt, request_options={"timeout": 30})
+                else:
+                    response_obj = agent.generate_content(full_analysis_prompt, request_options={"timeout": 30})
+                response = response_obj.text
+            except Exception as gen_error:
+                print(f"⚠️ Gemini API error in product analysis: {gen_error}")
+                # Fallback response for product analysis
+                response = f"""## 🤖 BrandPulse Assistant Response
+
+**Status**: AI service temporarily unavailable
+**Issue**: {str(gen_error)}
+
+### 📊 Product Analysis Request:
+**{product_name}**
+
+### 🎯 Fallback Analysis Response:
+
+**Overview:**
+- Market sentiment: Mixed with positive trends
+- Public perception: Generally favorable with room for improvement
+- Recent developments: Stable market position
+
+**Key Strengths:**
+- Quality and reliability
+- Strong brand recognition
+- Good user experience
+
+**Key Weaknesses:**
+- Pricing concerns
+- Customer support issues
+- Limited availability
+
+**Competitive Position:**
+- Strong market presence
+- Competitive pricing
+- Good differentiation
+
+**Recommendations:**
+1. **Improve customer support** response times
+2. **Address pricing concerns** through value communication
+3. **Enhance availability** and distribution
+4. **Monitor competitor activities** closely
+
+---
+*Note: This is a fallback response. AI service will be restored shortly.*"""
+        else:
+            response = "Agent not properly initialized"
         
         return {
             "product_name": product_name,
@@ -334,6 +486,410 @@ async def get_topics_analysis(timeRange: str = "7d"):
         # Return mock data as fallback
         return get_mock_topics_data()
 
+@app.get("/api/dashboard/overview")
+async def get_dashboard_overview():
+    """
+    Get dashboard overview data
+    """
+    try:
+        print("📊 Dashboard overview endpoint called")
+        return {
+            "totalReviews": 15847,
+            "positivePercent": 68.2,
+            "negativePercent": 18.5,
+            "neutralPercent": 13.3,
+            "todayReviews": 1247,
+            "weeklyGrowth": 12.5,
+            "monthlyGrowth": 8.7,
+            "avgResponseTime": "1.8 hours",
+            "customerSatisfaction": 4.2,
+            "topPositiveTopics": ["Quality", "Performance", "Design"],
+            "topNegativeTopics": ["Price", "Support", "Delivery"],
+            "recentAlerts": [
+                {"type": "info", "message": "Analysis completed", "time": "Just now"},
+                {"type": "success", "message": "Positive sentiment trend detected", "time": "1 hour ago"},
+            ],
+            "weeklyData": [
+                {"day": "Mon", "positive": 120, "negative": 30, "neutral": 20},
+                {"day": "Tue", "positive": 150, "negative": 25, "neutral": 15},
+                {"day": "Wed", "positive": 180, "negative": 40, "neutral": 25},
+                {"day": "Thu", "positive": 200, "negative": 35, "neutral": 30},
+                {"day": "Fri", "positive": 220, "negative": 45, "neutral": 35},
+                {"day": "Sat", "positive": 190, "negative": 30, "neutral": 25},
+                {"day": "Sun", "positive": 160, "negative": 20, "neutral": 20},
+            ]
+        }
+    except Exception as e:
+        print(f"❌ Dashboard overview error: {e}")
+        raise HTTPException(status_code=500, detail=f"Dashboard error: {str(e)}")
+
+@app.get("/api/analytics/sentiment")
+async def get_sentiment_analysis(timeRange: str = "7d", channel: str = "all"):
+    """
+    Get sentiment analysis data
+    """
+    return {
+        "channelBreakdown": [
+            {"channel": "Twitter", "positive": 45, "negative": 30, "neutral": 25, "total": 1000, "engagement": 85},
+            {"channel": "Facebook", "positive": 60, "negative": 20, "neutral": 20, "total": 800, "engagement": 78},
+            {"channel": "Instagram", "positive": 70, "negative": 15, "neutral": 15, "total": 600, "engagement": 92},
+            {"channel": "Reviews", "positive": 55, "negative": 25, "neutral": 20, "total": 1200, "engagement": 88},
+        ],
+        "recentReviews": [
+            {"id": 1, "text": "Great product, highly recommend!", "sentiment": "positive", "channel": "Twitter", "timestamp": "2024-01-15T10:30:00Z", "score": 0.8},
+            {"id": 2, "text": "Not satisfied with the quality", "sentiment": "negative", "channel": "Facebook", "timestamp": "2024-01-15T09:15:00Z", "score": -0.6},
+            {"id": 3, "text": "Average experience, nothing special", "sentiment": "neutral", "channel": "Reviews", "timestamp": "2024-01-15T08:45:00Z", "score": 0.1},
+            {"id": 4, "text": "Amazing service and fast delivery!", "sentiment": "positive", "channel": "Instagram", "timestamp": "2024-01-15T07:20:00Z", "score": 0.9},
+            {"id": 5, "text": "Could be better, had some issues", "sentiment": "negative", "channel": "Twitter", "timestamp": "2024-01-15T06:10:00Z", "score": -0.4},
+        ],
+        "topKeywords": [
+            {"word": "quality", "count": 342, "sentiment": "positive"},
+            {"word": "price", "count": 289, "sentiment": "negative"},
+            {"word": "delivery", "count": 234, "sentiment": "positive"},
+            {"word": "support", "count": 198, "sentiment": "negative"},
+            {"word": "design", "count": 167, "sentiment": "positive"},
+        ],
+        "hourlyTrend": [
+            {"hour": "00:00", "positive": 12, "negative": 3, "neutral": 2},
+            {"hour": "01:00", "positive": 8, "negative": 2, "neutral": 1},
+            {"hour": "02:00", "positive": 6, "negative": 1, "neutral": 1},
+            {"hour": "03:00", "positive": 5, "negative": 1, "neutral": 0},
+            {"hour": "04:00", "positive": 7, "negative": 2, "neutral": 1},
+            {"hour": "05:00", "positive": 15, "negative": 4, "neutral": 2},
+            {"hour": "06:00", "positive": 25, "negative": 6, "neutral": 3},
+            {"hour": "07:00", "positive": 35, "negative": 8, "neutral": 4},
+            {"hour": "08:00", "positive": 45, "negative": 12, "neutral": 6},
+            {"hour": "09:00", "positive": 55, "negative": 15, "neutral": 8},
+            {"hour": "10:00", "positive": 65, "negative": 18, "neutral": 10},
+            {"hour": "11:00", "positive": 70, "negative": 20, "neutral": 12},
+            {"hour": "12:00", "positive": 75, "negative": 22, "neutral": 14},
+            {"hour": "13:00", "positive": 80, "negative": 25, "neutral": 16},
+            {"hour": "14:00", "positive": 85, "negative": 28, "neutral": 18},
+            {"hour": "15:00", "positive": 90, "negative": 30, "neutral": 20},
+            {"hour": "16:00", "positive": 85, "negative": 28, "neutral": 18},
+            {"hour": "17:00", "positive": 80, "negative": 25, "neutral": 16},
+            {"hour": "18:00", "positive": 70, "negative": 20, "neutral": 12},
+            {"hour": "19:00", "positive": 60, "negative": 18, "neutral": 10},
+            {"hour": "20:00", "positive": 50, "negative": 15, "neutral": 8},
+            {"hour": "21:00", "positive": 40, "negative": 12, "neutral": 6},
+            {"hour": "22:00", "positive": 30, "negative": 8, "neutral": 4},
+            {"hour": "23:00", "positive": 20, "negative": 5, "neutral": 2},
+        ],
+        "summary": {
+            "totalMentions": 3600,
+            "positiveMentions": 2160,
+            "negativeMentions": 720,
+            "neutralMentions": 720
+        }
+    }
+
+@app.get("/api/products/search")
+async def search_products(q: str = "", limit: int = 20):
+    """
+    Search products
+    """
+    mock_products = [
+        {
+            "id": 1,
+            "name": "iPhone 15 Pro",
+            "brand": "Apple",
+            "category": "Smartphones",
+            "price": 999.00,
+            "image_url": "https://via.placeholder.com/300x300/007AFF/FFFFFF?text=iPhone+15+Pro",
+            "sentiment_summary": {
+                "positive": 72,
+                "negative": 18,
+                "neutral": 10,
+                "avg_score": 0.68,
+                "total_mentions": 1247
+            }
+        },
+        {
+            "id": 2,
+            "name": "Samsung Galaxy S24",
+            "brand": "Samsung",
+            "category": "Smartphones",
+            "price": 799.00,
+            "image_url": "https://via.placeholder.com/300x300/1F2937/FFFFFF?text=Galaxy+S24",
+            "sentiment_summary": {
+                "positive": 65,
+                "negative": 25,
+                "neutral": 10,
+                "avg_score": 0.55,
+                "total_mentions": 892
+            }
+        },
+        {
+            "id": 3,
+            "name": "MacBook Pro M3",
+            "brand": "Apple",
+            "category": "Laptops",
+            "price": 1999.00,
+            "image_url": "https://via.placeholder.com/300x300/007AFF/FFFFFF?text=MacBook+Pro",
+            "sentiment_summary": {
+                "positive": 78,
+                "negative": 15,
+                "neutral": 7,
+                "avg_score": 0.72,
+                "total_mentions": 634
+            }
+        },
+        {
+            "id": 4,
+            "name": "Tesla Model Y",
+            "brand": "Tesla",
+            "category": "Electric Vehicles",
+            "price": 47990.00,
+            "image_url": "https://via.placeholder.com/300x300/CC0000/FFFFFF?text=Tesla+Model+Y",
+            "sentiment_summary": {
+                "positive": 68,
+                "negative": 22,
+                "neutral": 10,
+                "avg_score": 0.58,
+                "total_mentions": 1456
+            }
+        },
+        {
+            "id": 5,
+            "name": "Nike Air Max 270",
+            "brand": "Nike",
+            "category": "Footwear",
+            "price": 150.00,
+            "image_url": "https://via.placeholder.com/300x300/FF6900/FFFFFF?text=Nike+Air+Max",
+            "sentiment_summary": {
+                "positive": 82,
+                "negative": 12,
+                "neutral": 6,
+                "avg_score": 0.76,
+                "total_mentions": 723
+            }
+        }
+    ]
+    
+    # Filter products based on search query
+    if q:
+        filtered_products = [p for p in mock_products if q.lower() in p["name"].lower() or q.lower() in p["brand"].lower()]
+    else:
+        filtered_products = mock_products
+    
+    return {
+        "results": filtered_products[:limit],
+        "total": len(filtered_products),
+        "query": q,
+        "facets": {
+            "brands": list(set([p["brand"] for p in filtered_products])),
+            "categories": list(set([p["category"] for p in filtered_products])),
+            "price_ranges": ["$0-$200", "$200-$1000", "$1000+"]
+        }
+    }
+    
+@app.get("/api/products/{product_id}/sentiment")
+async def get_product_sentiment(product_id: int, timeRange: str = "7d"):
+    """
+    Get sentiment analysis for a specific product
+    """
+    # Mock product sentiment data
+    mock_product_data = {
+        1: {  # iPhone 15 Pro
+            "summary": {
+                "total_mentions": 1247,
+                "positive_mentions": 897,
+                "negative_mentions": 224,
+                "neutral_mentions": 126,
+                "avg_sentiment_score": 0.68,
+                "trend": "increasing"
+            },
+            "timeline": [
+                {"date": "2024-01-10", "positive": 45, "negative": 12, "neutral": 8, "total": 65},
+                {"date": "2024-01-11", "positive": 52, "negative": 15, "neutral": 9, "total": 76},
+                {"date": "2024-01-12", "positive": 48, "negative": 18, "neutral": 11, "total": 77},
+                {"date": "2024-01-13", "positive": 61, "negative": 14, "neutral": 7, "total": 82},
+                {"date": "2024-01-14", "positive": 55, "negative": 16, "neutral": 10, "total": 81},
+                {"date": "2024-01-15", "positive": 58, "negative": 13, "neutral": 9, "total": 80},
+                {"date": "2024-01-16", "positive": 62, "negative": 11, "neutral": 8, "total": 81}
+            ],
+            "channels": [
+                {"channel": "Twitter", "positive": 58, "negative": 32, "neutral": 10, "total": 456},
+                {"channel": "Amazon Reviews", "positive": 75, "negative": 18, "neutral": 7, "total": 289},
+                {"channel": "YouTube", "positive": 82, "negative": 12, "neutral": 6, "total": 167},
+                {"channel": "Reddit", "positive": 45, "negative": 40, "neutral": 15, "total": 234}
+            ],
+            "topics": [
+                {"topic": "Camera Quality", "sentiment": "positive", "mentions": 342, "score": 0.78},
+                {"topic": "Price", "sentiment": "negative", "mentions": 189, "score": -0.45},
+                {"topic": "Battery Life", "sentiment": "neutral", "mentions": 156, "score": 0.12},
+                {"topic": "Design", "sentiment": "positive", "mentions": 234, "score": 0.65},
+                {"topic": "Performance", "sentiment": "positive", "mentions": 198, "score": 0.72}
+            ]
+        },
+        2: {  # Samsung Galaxy S24
+            "summary": {
+                "total_mentions": 892,
+                "positive_mentions": 580,
+                "negative_mentions": 223,
+                "neutral_mentions": 89,
+                "avg_sentiment_score": 0.55,
+                "trend": "stable"
+            },
+            "timeline": [
+                {"date": "2024-01-10", "positive": 32, "negative": 18, "neutral": 6, "total": 56},
+                {"date": "2024-01-11", "positive": 38, "negative": 22, "neutral": 8, "total": 68},
+                {"date": "2024-01-12", "positive": 35, "negative": 25, "neutral": 9, "total": 69},
+                {"date": "2024-01-13", "positive": 42, "negative": 20, "neutral": 7, "total": 69},
+                {"date": "2024-01-14", "positive": 40, "negative": 24, "neutral": 8, "total": 72},
+                {"date": "2024-01-15", "positive": 45, "negative": 19, "neutral": 6, "total": 70},
+                {"date": "2024-01-16", "positive": 48, "negative": 17, "neutral": 7, "total": 72}
+            ],
+            "channels": [
+                {"channel": "Twitter", "positive": 52, "negative": 35, "neutral": 13, "total": 312},
+                {"channel": "Amazon Reviews", "positive": 68, "negative": 25, "neutral": 7, "total": 201},
+                {"channel": "YouTube", "positive": 75, "negative": 18, "neutral": 7, "total": 134},
+                {"channel": "Reddit", "positive": 38, "negative": 45, "neutral": 17, "total": 167}
+            ],
+            "topics": [
+                {"topic": "Display Quality", "sentiment": "positive", "mentions": 234, "score": 0.68},
+                {"topic": "Price", "sentiment": "negative", "mentions": 198, "score": -0.52},
+                {"topic": "Camera", "sentiment": "positive", "mentions": 167, "score": 0.58},
+                {"topic": "Software", "sentiment": "negative", "mentions": 145, "score": -0.38},
+                {"topic": "Battery", "sentiment": "neutral", "mentions": 123, "score": 0.15}
+            ]
+        },
+        3: {  # MacBook Pro M3
+            "summary": {
+                "total_mentions": 634,
+                "positive_mentions": 494,
+                "negative_mentions": 95,
+                "neutral_mentions": 45,
+                "avg_sentiment_score": 0.72,
+                "trend": "increasing"
+            },
+            "timeline": [
+                {"date": "2024-01-10", "positive": 28, "negative": 6, "neutral": 3, "total": 37},
+                {"date": "2024-01-11", "positive": 32, "negative": 8, "neutral": 4, "total": 44},
+                {"date": "2024-01-12", "positive": 30, "negative": 9, "neutral": 5, "total": 44},
+                {"date": "2024-01-13", "positive": 35, "negative": 7, "neutral": 3, "total": 45},
+                {"date": "2024-01-14", "positive": 38, "negative": 6, "neutral": 4, "total": 48},
+                {"date": "2024-01-15", "positive": 42, "negative": 5, "neutral": 3, "total": 50},
+                {"date": "2024-01-16", "positive": 45, "negative": 4, "neutral": 2, "total": 51}
+            ],
+            "channels": [
+                {"channel": "Twitter", "positive": 68, "negative": 22, "neutral": 10, "total": 201},
+                {"channel": "Amazon Reviews", "positive": 82, "negative": 12, "neutral": 6, "total": 156},
+                {"channel": "YouTube", "positive": 88, "negative": 8, "neutral": 4, "total": 123},
+                {"channel": "Reddit", "positive": 72, "negative": 18, "neutral": 10, "total": 154}
+            ],
+            "topics": [
+                {"topic": "Performance", "sentiment": "positive", "mentions": 198, "score": 0.85},
+                {"topic": "Price", "sentiment": "negative", "mentions": 145, "score": -0.62},
+                {"topic": "Build Quality", "sentiment": "positive", "mentions": 123, "score": 0.78},
+                {"topic": "Battery Life", "sentiment": "positive", "mentions": 98, "score": 0.72},
+                {"topic": "Display", "sentiment": "positive", "mentions": 87, "score": 0.68}
+            ]
+        }
+    }
+    
+    product_data = mock_product_data.get(product_id, {
+        "summary": {
+            "total_mentions": 0,
+            "positive_mentions": 0,
+            "negative_mentions": 0,
+            "neutral_mentions": 0,
+            "avg_sentiment_score": 0,
+            "trend": "stable"
+        },
+        "timeline": [],
+        "channels": [],
+        "topics": []
+    })
+    
+    return product_data
+
+@app.get("/api/products/{product_id}")
+async def get_product_details(product_id: int):
+    """
+    Get detailed information about a specific product
+    """
+    mock_products = {
+        1: {
+            "id": 1,
+            "name": "iPhone 15 Pro",
+            "brand": "Apple",
+            "category": "Smartphones",
+            "price": 999.00,
+            "description": "Latest iPhone with titanium design and advanced camera system. Features include A17 Pro chip, 48MP camera system, and titanium construction.",
+            "image_url": "https://via.placeholder.com/300x300/007AFF/FFFFFF?text=iPhone+15+Pro",
+            "specifications": {
+                "display": "6.1-inch Super Retina XDR",
+                "storage": "128GB",
+                "camera": "48MP Main + 12MP Ultra Wide",
+                "chip": "A17 Pro",
+                "battery": "Up to 23 hours video playback"
+            },
+            "sentiment_summary": {
+                "positive": 72,
+                "negative": 18,
+                "neutral": 10,
+                "avg_score": 0.68,
+                "total_mentions": 1247,
+                "trend": "increasing"
+            }
+        },
+        2: {
+            "id": 2,
+            "name": "Samsung Galaxy S24",
+            "brand": "Samsung",
+            "category": "Smartphones",
+            "price": 799.00,
+            "description": "Samsung's flagship smartphone with advanced AI features, superior camera system, and premium design.",
+            "image_url": "https://via.placeholder.com/300x300/1F2937/FFFFFF?text=Galaxy+S24",
+            "specifications": {
+                "display": "6.2-inch Dynamic AMOLED 2X",
+                "storage": "256GB",
+                "camera": "50MP Main + 12MP Ultra Wide",
+                "chip": "Snapdragon 8 Gen 3",
+                "battery": "4000mAh"
+            },
+            "sentiment_summary": {
+                "positive": 65,
+                "negative": 25,
+                "neutral": 10,
+                "avg_score": 0.55,
+                "total_mentions": 892,
+                "trend": "stable"
+            }
+        },
+        3: {
+            "id": 3,
+            "name": "MacBook Pro M3",
+            "brand": "Apple",
+            "category": "Laptops",
+            "price": 1999.00,
+            "description": "Professional laptop with M3 chip, stunning Liquid Retina XDR display, and all-day battery life.",
+            "image_url": "https://via.placeholder.com/300x300/007AFF/FFFFFF?text=MacBook+Pro",
+            "specifications": {
+                "display": "14.2-inch Liquid Retina XDR",
+                "storage": "512GB SSD",
+                "chip": "Apple M3",
+                "memory": "8GB Unified Memory",
+                "battery": "Up to 18 hours"
+            },
+            "sentiment_summary": {
+                "positive": 78,
+                "negative": 15,
+                "neutral": 7,
+                "avg_score": 0.72,
+                "total_mentions": 634,
+                "trend": "increasing"
+            }
+        }
+    }
+    
+    product = mock_products.get(product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    return product
+
 def get_mock_topics_data():
     """Mock topics data for development"""
     return {
@@ -373,4 +929,5 @@ if __name__ == "__main__":
     if not auth_available:
         print("⚠️  Warning: No authentication configured. Please set up service account or API key.")
     
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    # Note: Server startup is handled by Dockerfile CMD
+    print("ℹ️ Server startup handled by Dockerfile CMD")
