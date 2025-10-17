@@ -14,7 +14,7 @@ This document presents a comprehensive COCOMO-II cost analysis for the BrandPuls
 ### Key Findings
 - **Estimated Effort:** 8.5 Person-Months
 - **Estimated Schedule:** 6.2 Months
-- **Estimated Cost:** $850,000 - $1,700,000
+- **Estimated Cost:** ₹5,95,00,000 - ₹11,90,00,000
 - **Team Size:** 4-6 developers
 - **Project Classification:** Organic (Small Team, Familiar Environment)
 
@@ -175,35 +175,35 @@ Schedule = 7.9 months
 
 ### 5.1 Personnel Cost Breakdown
 
-| Role | Count | Hours/Month | Total Hours | Rate/Hour | Total Cost |
-|------|-------|-------------|-------------|-----------|------------|
-| **Project Manager** | 1 | 160 | 992 | $75 | $74,400 |
-| **Senior Developer** | 2 | 160 | 1,984 | $100 | $198,400 |
-| **AI/ML Engineer** | 1 | 160 | 992 | $120 | $119,040 |
-| **DevOps Engineer** | 1 | 160 | 992 | $90 | $89,280 |
-| **QA Engineer** | 1 | 160 | 992 | $70 | $69,440 |
-| **UI/UX Designer** | 1 | 120 | 744 | $80 | $59,520 |
-| **Total** | **7** | - | **6,696** | - | **$610,080** |
+| Role | Count | Hours/Month | Total Hours | Rate/Hour (INR) | Total Cost (INR) |
+|------|-------|-------------|-------------|-----------------|------------------|
+| **Project Manager** | 1 | 160 | 992 | ₹750 | ₹7,44,000 |
+| **Senior Developer** | 2 | 160 | 1,984 | ₹1,000 | ₹19,84,000 |
+| **AI/ML Engineer** | 1 | 160 | 992 | ₹1,200 | ₹11,90,400 |
+| **DevOps Engineer** | 1 | 160 | 992 | ₹900 | ₹8,92,800 |
+| **QA Engineer** | 1 | 160 | 992 | ₹700 | ₹6,94,400 |
+| **UI/UX Designer** | 1 | 120 | 744 | ₹800 | ₹5,95,200 |
+| **Total** | **7** | - | **6,696** | - | **₹60,90,800** |
 
 ### 5.2 Infrastructure and Tools Cost
 
-| Category | Item | Monthly Cost | Total Cost |
-|----------|------|--------------|------------|
-| **Development Tools** | IDE, Licenses | $500 | $3,100 |
-| **Cloud Services** | AWS/Azure | $1,000 | $6,200 |
-| **AI/ML Services** | Google Gemini API | $800 | $4,960 |
-| **Monitoring** | DataDog, Logging | $300 | $1,860 |
-| **Testing Tools** | TestRail, Selenium | $200 | $1,240 |
-| **Total** | - | **$2,800** | **$17,360** |
+| Category | Item | Monthly Cost (INR) | Total Cost (INR) |
+|----------|------|-------------------|------------------|
+| **Development Tools** | IDE, Licenses | ₹35,000 | ₹2,17,000 |
+| **Cloud Services** | AWS/Azure | ₹70,000 | ₹4,34,000 |
+| **AI/ML Services** | Google Gemini API | ₹56,000 | ₹3,47,200 |
+| **Monitoring** | DataDog, Logging | ₹21,000 | ₹1,30,200 |
+| **Testing Tools** | TestRail, Selenium | ₹14,000 | ₹86,800 |
+| **Total** | - | **₹1,96,000** | **₹12,15,200** |
 
 ### 5.3 Total Project Cost
 
-| Cost Category | Amount | Percentage |
-|---------------|--------|------------|
-| **Personnel Costs** | $610,080 | 89.7% |
-| **Infrastructure & Tools** | $17,360 | 2.6% |
-| **Contingency (10%)** | $62,744 | 9.2% |
-| **Total Project Cost** | **$690,184** | **100%** |
+| Cost Category | Amount (INR) | Percentage |
+|---------------|--------------|------------|
+| **Personnel Costs** | ₹60,90,800 | 89.7% |
+| **Infrastructure & Tools** | ₹12,15,200 | 2.6% |
+| **Contingency (10%)** | ₹7,30,600 | 9.2% |
+| **Total Project Cost** | **₹80,36,600** | **100%** |
 
 ---
 
@@ -239,27 +239,27 @@ Schedule = 7.9 months
 
 ### 7.1 Development Phases
 
-| Phase | Effort (%) | Duration (months) | Team Size | Cost |
-|-------|------------|-------------------|-----------|------|
-| **Requirements & Planning** | 8% | 0.5 | 3 | $55,215 |
-| **Design & Architecture** | 12% | 0.7 | 4 | $82,822 |
-| **Frontend Development** | 20% | 1.2 | 3 | $138,037 |
-| **Backend Development** | 25% | 1.6 | 4 | $172,546 |
-| **AI/ML Integration** | 15% | 0.9 | 2 | $103,528 |
-| **Testing & QA** | 12% | 0.7 | 2 | $82,822 |
-| **Deployment & DevOps** | 8% | 0.5 | 2 | $55,215 |
-| **Total** | **100%** | **6.2** | **3-4 avg** | **$690,184** |
+| Phase | Effort (%) | Duration (months) | Team Size | Cost (INR) |
+|-------|------------|-------------------|-----------|------------|
+| **Requirements & Planning** | 8% | 0.5 | 3 | ₹6,42,928 |
+| **Design & Architecture** | 12% | 0.7 | 4 | ₹9,64,392 |
+| **Frontend Development** | 20% | 1.2 | 3 | ₹16,07,320 |
+| **Backend Development** | 25% | 1.6 | 4 | ₹20,09,150 |
+| **AI/ML Integration** | 15% | 0.9 | 2 | ₹12,05,490 |
+| **Testing & QA** | 12% | 0.7 | 2 | ₹9,64,392 |
+| **Deployment & DevOps** | 8% | 0.5 | 2 | ₹6,42,928 |
+| **Total** | **100%** | **6.2** | **3-4 avg** | **₹80,36,600** |
 
 ### 7.2 Resource Allocation Over Time
 
 ```
-Month 1: Requirements & Planning (3 people)
-Month 2: Design & Architecture (4 people)
-Month 3: Frontend Development (3 people)
-Month 4: Backend Development (4 people)
-Month 5: AI/ML Integration (2 people)
-Month 6: Testing & QA (2 people)
-Month 7: Deployment & DevOps (2 people)
+Month 1: Requirements & Planning (3 people)     - ₹6,42,928
+Month 2: Design & Architecture (4 people)      - ₹9,64,392
+Month 3: Frontend Development (3 people)        - ₹16,07,320
+Month 4: Backend Development (4 people)         - ₹20,09,150
+Month 5: AI/ML Integration (2 people)          - ₹12,05,490
+Month 6: Testing & QA (2 people)                - ₹9,64,392
+Month 7: Deployment & DevOps (2 people)         - ₹6,42,928
 ```
 
 ---
@@ -268,22 +268,22 @@ Month 7: Deployment & DevOps (2 people)
 
 ### 8.1 Risk Factors and Impact
 
-| Risk Factor | Probability | Impact | Mitigation | Cost Impact |
-|-------------|-------------|--------|------------|-------------|
-| **AI Integration Complexity** | Medium | High | Prototype early | +$50,000 |
-| **Third-party API Changes** | Low | Medium | Version control | +$20,000 |
-| **Performance Requirements** | Medium | Medium | Load testing | +$30,000 |
-| **Team Availability** | Low | High | Backup resources | +$40,000 |
-| **Scope Creep** | Medium | Medium | Change control | +$60,000 |
+| Risk Factor | Probability | Impact | Mitigation | Cost Impact (INR) |
+|-------------|-------------|--------|------------|-------------------|
+| **AI Integration Complexity** | Medium | High | Prototype early | +₹35,00,000 |
+| **Third-party API Changes** | Low | Medium | Version control | +₹14,00,000 |
+| **Performance Requirements** | Medium | Medium | Load testing | +₹21,00,000 |
+| **Team Availability** | Low | High | Backup resources | +₹28,00,000 |
+| **Scope Creep** | Medium | Medium | Change control | +₹42,00,000 |
 
 ### 8.2 Risk-adjusted Cost Estimate
 
-| Scenario | Probability | Cost Adjustment | Final Cost |
-|----------|-------------|-----------------|------------|
-| **Optimistic** | 20% | -$50,000 | $640,184 |
-| **Most Likely** | 60% | $0 | $690,184 |
-| **Pessimistic** | 20% | +$200,000 | $890,184 |
-| **Expected Value** | - | +$30,000 | **$720,184** |
+| Scenario | Probability | Cost Adjustment (INR) | Final Cost (INR) |
+|----------|-------------|------------------------|------------------|
+| **Optimistic** | 20% | -₹35,00,000 | ₹45,36,600 |
+| **Most Likely** | 60% | ₹0 | ₹80,36,600 |
+| **Pessimistic** | 20% | +₹1,40,00,000 | ₹2,20,36,600 |
+| **Expected Value** | - | +₹21,00,000 | **₹1,01,36,600** |
 
 ---
 
@@ -291,23 +291,23 @@ Month 7: Deployment & DevOps (2 people)
 
 ### 9.1 Size Sensitivity
 
-| SLOC Variation | Effort (PM) | Schedule (Months) | Cost |
-|----------------|-------------|-------------------|------|
-| **-20% (11,000)** | 6.8 | 5.5 | $552,147 |
-| **-10% (12,400)** | 7.6 | 6.0 | $621,166 |
-| **Base (13,728)** | 8.5 | 6.2 | $690,184 |
-| **+10% (15,100)** | 9.4 | 6.5 | $759,202 |
-| **+20% (16,500)** | 10.3 | 6.8 | $828,221 |
+| SLOC Variation | Effort (PM) | Schedule (Months) | Cost (INR) |
+|----------------|-------------|-------------------|------------|
+| **-20% (11,000)** | 6.8 | 5.5 | ₹64,29,280 |
+| **-10% (12,400)** | 7.6 | 6.0 | ₹72,32,940 |
+| **Base (13,728)** | 8.5 | 6.2 | ₹80,36,600 |
+| **+10% (15,100)** | 9.4 | 6.5 | ₹88,40,260 |
+| **+20% (16,500)** | 10.3 | 6.8 | ₹96,43,920 |
 
 ### 9.2 EAF Sensitivity
 
-| EAF Variation | Effort (PM) | Schedule (Months) | Cost |
-|---------------|-------------|-------------------|------|
-| **0.75** | 7.5 | 5.9 | $608,640 |
-| **0.80** | 8.0 | 6.0 | $649,216 |
-| **0.85 (Base)** | 8.5 | 6.2 | $690,184 |
-| **0.90** | 9.0 | 6.3 | $731,152 |
-| **0.95** | 9.5 | 6.5 | $772,120 |
+| EAF Variation | Effort (PM) | Schedule (Months) | Cost (INR) |
+|---------------|-------------|-------------------|------------|
+| **0.75** | 7.5 | 5.9 | ₹70,68,000 |
+| **0.80** | 8.0 | 6.0 | ₹75,40,800 |
+| **0.85 (Base)** | 8.5 | 6.2 | ₹80,36,600 |
+| **0.90** | 9.0 | 6.3 | ₹85,32,400 |
+| **0.95** | 9.5 | 6.5 | ₹90,28,200 |
 
 ---
 
@@ -317,7 +317,7 @@ Month 7: Deployment & DevOps (2 people)
 
 1. **Leverage Open Source**
    - Use React, FastAPI, MySQL (free)
-   - Estimated savings: $50,000
+   - Estimated savings: ₹35,00,000
 
 2. **Phased Development**
    - MVP first, then enhancements
@@ -365,7 +365,7 @@ Month 7: Deployment & DevOps (2 people)
 
 The COCOMO-II analysis for the BrandPulse project provides a comprehensive cost estimation framework based on proven software engineering models. Key findings include:
 
-- **Total Project Cost:** $690,184 - $720,184 (risk-adjusted)
+- **Total Project Cost:** ₹80,36,600 - ₹1,01,36,600 (risk-adjusted)
 - **Development Effort:** 8.5 person-months
 - **Project Schedule:** 6.2 months
 - **Team Size:** 3-4 developers average
@@ -420,8 +420,8 @@ Schedule = 6.2 months (adjusted)
 ### Cost Calculation
 ```
 Total Cost = Personnel + Infrastructure + Contingency
-Total Cost = $610,080 + $17,360 + $62,744
-Total Cost = $690,184
+Total Cost = ₹60,90,800 + ₹12,15,200 + ₹7,30,600
+Total Cost = ₹80,36,600
 ```
 
 ---
