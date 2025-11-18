@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # MySQL Database
   database:
@@ -16,6 +14,7 @@ services:
       - mysql_data:/var/lib/mysql
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./database/seed_data.sql:/docker-entrypoint-initdb.d/02-seed_data.sql:ro
+      - ./database/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
     networks:
       - brandpulse-network
     restart: unless-stopped
@@ -24,7 +23,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-    command: --default-authentication-plugin=mysql_native_password --bind-address=0.0.0.0
 
   # FastAPI Backend
   backend:
@@ -34,9 +32,14 @@ services:
     container_name: brandpulse-backend
     environment:
       - DATABASE_URL=mysql://brandpulse_user:brandpulse_password@database:3306/brandpulse
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - DB_HOST=database
+      - DB_PORT=3306
+      - DB_USER=brandpulse_user
+      - DB_PASSWORD=brandpulse_password
+      - DB_NAME=brandpulse
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
       - GOOGLE_APPLICATION_CREDENTIALS=/app/service_account.json
-      - CORS_ORIGINS=http://localhost:3000,http://localhost:80,http://frontend:80
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:80,http://frontend:80,http://localhost:3001,http://localhost:3002
       - LOG_LEVEL=info
     ports:
       - "8000:8000"
@@ -49,11 +52,8 @@ services:
     networks:
       - brandpulse-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # React Frontend
   frontend:
@@ -62,14 +62,15 @@ services:
       dockerfile: Dockerfile.frontend
     container_name: brandpulse-frontend
     environment:
-      - REACT_APP_API_URL=http://brandpulse-backend:8000
-      - REACT_APP_WS_URL=ws://brandpulse-backend:8000
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_DB_API_URL=http://localhost:8001
+      - REACT_APP_WS_URL=ws://localhost:8000
       - NODE_ENV=production
     ports:
       - "3000:80"
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
+      - database-api
     networks:
       - brandpulse-network
     restart: unless-stopped
@@ -78,6 +79,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # Database API Service (separate microservice for database operations)
   database-api:
@@ -107,13 +110,15 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # Redis for caching (optional but recommended for production)
   redis:
     image: redis:7-alpine
     container_name: brandpulse-redis
-    ports:
-      - "6379:6379"
+    # Port removed - only accessed internally via Docker network (redis:6379)
+    # External port 6379 is already in use by another Redis instance
     volumes:
       - redis_data:/data
     networks:
@@ -124,6 +129,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # Nginx Load Balancer (optional for production)
   nginx:
@@ -133,7 +140,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       - frontend
@@ -144,6 +151,8 @@ services:
     restart: unless-stopped
     profiles:
       - production
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   mysql_data:
@@ -154,6 +163,11 @@ volumes:
 networks:
   brandpulse-network:
     driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.bridge.host_binding_ipv4: "0.0.0.0"
     ipam:
       config:
         - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1

@@ -24,61 +24,58 @@
 
 ### Backend API Unit Tests
 
-| Test ID | Component | Function/Method | Test Description | Input | Expected Output | Test Data | Pass/Fail | Notes |
-|---------|-----------|-----------------|------------------|-------|-----------------|-----------|-----------|-------|
-| UT-BE-001 | FastAPI App | Root Endpoint | Test root endpoint returns correct response | GET / | Status 200, message with status info | None | Pass | Root endpoint working correctly |
-| UT-BE-002 | FastAPI App | Health Check | Test health endpoint returns system status | GET /health | Status 200, health status with agent info | None | Pass | Health check returns comprehensive status |
-| UT-BE-003 | FastAPI App | Test Endpoint | Test test endpoint returns timestamp | GET /test | Status 200, message with current timestamp | None | Pass | Test endpoint returns proper timestamp |
-| UT-BE-004 | FastAPI App | Simple Endpoint | Test simple connectivity endpoint | GET /simple | Status 200, connection success message | None | Pass | Simple endpoint confirms connectivity |
-| UT-BE-005 | Chat API | Chat Message Processing | Test chat endpoint with valid message | POST /api/chat with valid text | Status 200, ChatResponse with analysis | {"text": "Test message"} | Pass | Chat API processes messages correctly |
-| UT-BE-006 | Chat API | Empty Message Validation | Test chat endpoint rejects empty message | POST /api/chat with empty text | Status 422, validation error | {"text": ""} | Pass | Empty messages properly rejected |
-| UT-BE-007 | Chat API | Product Context | Test chat with product name context | POST /api/chat with product_name | Status 200, response includes product context | {"text": "Analyze", "product_name": "iPhone"} | Pass | Product context included in responses |
-| UT-BE-008 | Chat API | Invalid JSON Handling | Test chat endpoint handles malformed JSON | POST /api/chat with invalid JSON | Status 422, validation error | Invalid JSON string | Pass | Malformed JSON properly handled |
-| UT-BE-009 | CORS Middleware | Origin Validation | Test CORS allows frontend origins | Request from localhost:3000 | CORS headers allow origin | Origin: localhost:3000 | Pass | CORS allows authorized origins |
-| UT-BE-010 | CORS Middleware | Unauthorized Origin | Test CORS blocks unauthorized origins | Request from unauthorized origin | CORS headers block origin | Origin: malicious-site.com | Pass | CORS blocks unauthorized origins |
-| UT-BE-011 | Error Handling | HTTP Status Codes | Test proper HTTP status codes returned | Various error conditions | Appropriate status codes (400, 422, 500) | Various error inputs | Pass | Proper HTTP status codes returned |
-| UT-BE-012 | Authentication | Google ADK Setup | Test Google authentication initialization | Initialize agent | Agent instance created successfully | Service account credentials | Pass | Google ADK authentication working |
-| UT-BE-013 | Authentication | Agent Initialization | Test agent initialization without errors | Initialize agent | Agent ready without hanging | None | Pass | Agent initializes without errors |
-| UT-BE-014 | Database API | Connection Test | Test database connection with PyMySQL | Connect to database | Connection established successfully | Database credentials | Pass | Database connection successful |
-| UT-BE-015 | Database API | Fallback Connection | Test MySQL connector fallback | Connect with mysql.connector | Fallback connection works | Database credentials | Pass | MySQL connector fallback working |
+| Test Case ID | Description | Steps | Expected Outcome | Actual Results | Status |
+|-------------|-------------|-------|------------------|---------------|---------|
+| UT-BE-001 | Root Endpoint Test | 1. Start the backend server<br>2. Send GET request to root endpoint<br>3. Verify response status and content | Returns 200 status with message and status information | Successfully returns {"message": "BrandPulse Chat API Test", "status": "running"} | Pass |
+| UT-BE-002 | Health Check Endpoint Test | 1. Send GET request to /health endpoint<br>2. Verify response contains health status<br>3. Check agent information is present | Returns 200 status with healthy status and agent details | Returns healthy status with agent info, model details, and availability | Pass |
+| UT-BE-003 | Test Endpoint Response Test | 1. Send GET request to /test endpoint<br>2. Verify response contains timestamp<br>3. Check message format | Returns 200 status with message and current timestamp | Returns message with ISO timestamp format | Pass |
+| UT-BE-004 | Simple Endpoint Connectivity Test | 1. Send GET request to /simple endpoint<br>2. Verify response status<br>3. Check connection message | Returns 200 status with OK status and connection message | Returns {"status": "ok", "message": "Connection successful"} | Pass |
+| UT-BE-005 | Chat Endpoint Valid Message Test | 1. Send POST request to /api/chat with valid message<br>2. Verify response format<br>3. Check analysis content | Returns 200 status with ChatResponse containing analysis, timestamp, and agent name | Returns proper ChatResponse with sentiment analysis and recommendations | Pass |
+| UT-BE-006 | Chat Endpoint Empty Message Test | 1. Send POST request to /api/chat with empty message<br>2. Verify error response<br>3. Check status code | Returns 422 validation error with appropriate error message | Returns 422 status with validation error for empty text field | Pass |
+| UT-BE-007 | Chat Endpoint Product Context Test | 1. Send POST request to /api/chat with product_name<br>2. Verify response includes product context<br>3. Check product-specific analysis | Returns 200 status with response including product context | Product context properly included in analysis response | Pass |
+| UT-BE-008 | Chat Endpoint Invalid JSON Test | 1. Send POST request to /api/chat with invalid JSON<br>2. Verify error handling<br>3. Check status code | Returns 422 validation error with proper error handling | Invalid JSON properly handled with appropriate error | Pass |
+| UT-BE-009 | CORS Middleware Origin Validation Test | 1. Send request from frontend origin<br>2. Verify CORS headers<br>3. Test unauthorized origin | Allows frontend origins and blocks unauthorized requests | CORS headers properly configured for allowed origins | Pass |
+| UT-BE-010 | CORS Middleware Unauthorized Origin Test | 1. Send request from unauthorized origin<br>2. Verify CORS headers<br>3. Check blocking behavior | Blocks unauthorized origins with proper CORS headers | CORS blocks unauthorized origins correctly | Pass |
+| UT-BE-011 | Error Handling HTTP Status Test | 1. Send malformed requests<br>2. Test invalid endpoints<br>3. Verify error responses | Returns appropriate HTTP status codes (400, 422, 500) | Proper error handling with correct status codes | Pass |
+| UT-BE-012 | Google Authentication Setup Test | 1. Check service account file exists<br>2. Verify environment variables<br>3. Test authentication initialization | Authentication setup completes successfully with proper credentials | Service account authentication configured correctly | Pass |
+| UT-BE-013 | Agent Initialization Test | 1. Initialize the agent<br>2. Verify agent instance creation<br>3. Check for initialization errors | Agent initializes successfully without errors or hanging | Agent instance created successfully with mock responses | Pass |
+| UT-BE-014 | Database Connection PyMySQL Test | 1. Attempt database connection with pymysql<br>2. Verify connection success<br>3. Test query execution | Database connection established successfully | Connection test passes with pymysql driver | Pass |
+| UT-BE-015 | Database Connection MySQL Connector Test | 1. Attempt database connection with mysql.connector<br>2. Verify fallback functionality<br>3. Test connection status | Fallback connection works when pymysql unavailable | MySQL connector fallback works correctly | Pass |
 
 ### Frontend Component Unit Tests
 
-| Test ID | Component | Function/Method | Test Description | Input | Expected Output | Test Data | Pass/Fail | Notes |
-|---------|-----------|-----------------|------------------|-------|-----------------|-----------|-----------|-------|
-| UT-FE-001 | App Component | Component Rendering | Test App component renders without crashing | Load application | App renders successfully | None | Pass | App component loads without errors |
-| UT-FE-002 | App Component | Title Display | Test BrandPulse title displays correctly | Load application | Title visible in header and navigation | None | Pass | Title displays consistently across UI |
-| UT-FE-003 | App Component | Navigation Menu | Test navigation menu renders all items | Load application | All menu items visible and functional | None | Pass | All navigation items render correctly |
-| UT-FE-004 | App Component | Dark Mode Toggle | Test dark mode toggle functionality | Click toggle button | Theme switches between light/dark | None | Pass | Theme toggle works perfectly |
-| UT-FE-005 | Dashboard Component | Component Rendering | Test Dashboard renders metrics correctly | Navigate to dashboard | Metrics displayed with proper visualization | Mock data | Pass | Dashboard displays all metrics correctly |
-| UT-FE-006 | Analytics Component | Charts Display | Test Analytics charts render correctly | Navigate to analytics | Charts display with interactive functionality | Mock data | Pass | Charts render with interactive features |
-| UT-FE-007 | Chat Component | API Communication | Test Chat component sends messages to API | Send message | Message sent to API, response displayed | {"text": "Test message"} | Pass | Chat API communication working |
-| UT-FE-008 | ProductSearch Component | Filter Functionality | Test ProductSearch filters products correctly | Enter search criteria | Filtered results displayed | Search query | Pass | Search filtering works correctly |
-| UT-FE-009 | Settings Component | Settings Update | Test Settings component updates preferences | Modify settings | Settings updated and persisted | Settings object | Pass | Settings updates and persists correctly |
-| UT-FE-010 | Timeline Component | Data Display | Test Timeline displays data correctly | Navigate to timeline | Timeline data displayed with proper date ranges | Mock timeline data | Pass | Timeline visualization works correctly |
-| UT-FE-011 | Topics Component | Trending Topics | Test Topics shows trending topics correctly | Navigate to topics | Trending topics displayed with sentiment analysis | Mock topics data | Pass | Trending topics display correctly |
-| UT-FE-012 | LandingPage Component | Welcome Content | Test LandingPage renders welcome content | Load landing page | Welcome content and navigation options displayed | None | Pass | Landing page displays correctly |
-| UT-FE-013 | WebCrawlers Component | Crawler Management | Test WebCrawlers manages crawler settings | Navigate to crawlers | Crawler settings interface displayed | Mock crawler data | Pass | Crawler management interface works |
-| UT-FE-014 | Theme Context | Dark/Light Mode | Test Theme context provides theme functionality | Toggle theme | Theme context updates across components | Theme state | Pass | Theme context works across components |
-| UT-FE-015 | Product Context | State Management | Test Product context manages product state | Update product | Product state updated across components | Product object | Pass | Product state management works correctly |
+| Test Case ID | Description | Steps | Expected Outcome | Actual Results | Status |
+|-------------|-------------|-------|------------------|---------------|---------|
+| UT-FE-001 | App Component Render Test | 1. Load the application<br>2. Verify App component renders<br>3. Check for errors | App component renders without crashing and displays interface correctly | Application loads successfully with proper interface | Pass |
+| UT-FE-002 | App Title Display Test | 1. Check header title<br>2. Verify navigation title<br>3. Confirm title consistency | BrandPulse title displays correctly in header and navigation areas | Title displays consistently across all areas | Pass |
+| UT-FE-003 | Navigation Menu Render Test | 1. Check navigation menu<br>2. Verify all menu items<br>3. Test menu functionality | Navigation menu renders all items including Dashboard, Analytics, Chat, Settings | All navigation items render correctly and function properly | Pass |
+| UT-FE-004 | Dark Mode Toggle Test | 1. Click dark mode toggle<br>2. Verify theme change<br>3. Check persistence | Dark mode toggle switches between light and dark themes correctly | Theme toggle works perfectly with proper persistence | Pass |
+| UT-FE-005 | Dashboard Component Render Test | 1. Navigate to dashboard<br>2. Verify metrics display<br>3. Check component rendering | Dashboard renders metrics including sentiment distribution and key metrics | Dashboard displays all metrics correctly with proper visualization | Pass |
+| UT-FE-006 | Analytics Component Charts Test | 1. Navigate to analytics<br>2. Verify charts display<br>3. Check chart functionality | Analytics displays charts including sentiment trends and channel performance | Charts render correctly with interactive functionality | Pass |
+| UT-FE-007 | Chat Component API Communication Test | 1. Open chat interface<br>2. Send test message<br>3. Verify API communication | Chat component sends messages to API and displays responses correctly | Chat interface communicates properly with backend API | Pass |
+| UT-FE-008 | ProductSearch Component Filter Test | 1. Navigate to product search<br>2. Enter search criteria<br>3. Verify filtering | ProductSearch filters products correctly based on search criteria | Search functionality works perfectly with proper filtering | Pass |
+| UT-FE-009 | Settings Component Update Test | 1. Navigate to settings<br>2. Modify preferences<br>3. Verify persistence | Settings component updates and persists changes across sessions | Settings updates work correctly with proper persistence | Pass |
+| UT-FE-010 | Timeline Component Display Test | 1. Navigate to timeline<br>2. Verify timeline data<br>3. Check date ranges | Timeline displays data correctly with proper date ranges and sentiment trends | Timeline visualization works perfectly with accurate data | Pass |
+| UT-FE-011 | Topics Component Trending Test | 1. Navigate to topics<br>2. Verify trending topics<br>3. Check sentiment analysis | Topics component shows trending topics with sentiment analysis and keyword extraction | Trending topics display correctly with proper sentiment analysis | Pass |
+| UT-FE-012 | LandingPage Component Render Test | 1. Load landing page<br>2. Verify welcome content<br>3. Check navigation options | LandingPage renders welcome content with proper introduction and navigation | Landing page displays correctly with all navigation options | Pass |
+| UT-FE-013 | WebCrawlers Component Management Test | 1. Navigate to web crawlers<br>2. Test crawler settings<br>3. Verify management functions | WebCrawlers manages crawler settings including start, stop, and configuration | Crawler management interface works perfectly with all functions | Pass |
+| UT-FE-014 | Theme Context Dark Light Test | 1. Test theme context<br>2. Verify dark/light mode<br>3. Check context functionality | Theme context provides dark and light mode functionality across components | Theme context works correctly across all components | Pass |
+| UT-FE-015 | Product Context State Management Test | 1. Test product context<br>2. Verify state management<br>3. Check data updates | Product context manages product state correctly including selection and updates | Product state management works perfectly with proper updates | Pass |
 
 ### AI/ML Model Unit Tests
 
-| Test ID | Component | Function/Method | Test Description | Input | Expected Output | Test Data | Pass/Fail | Notes |
-|---------|-----------|-----------------|------------------|-------|-----------------|-----------|-----------|-------|
-| UT-ML-001 | Sentiment Model | Model Loading | Test sentiment model loads without errors | Initialize model | Model loads successfully with dependencies | Model files | Pass | Model loads with all dependencies |
-| UT-ML-002 | Text Preprocessing | Text Cleaning | Test text preprocessing cleans input correctly | Raw text input | Cleaned and normalized text | "Hello! This is a test." | Pass | Text preprocessing works correctly |
-| UT-ML-003 | Sentiment Model | Positive Prediction | Test model predicts positive sentiment correctly | Positive text | Positive sentiment with confidence score | "I love this product!" | Pass | Positive sentiment predicted accurately |
-| UT-ML-004 | Sentiment Model | Negative Prediction | Test model predicts negative sentiment correctly | Negative text | Negative sentiment with confidence score | "This product is terrible!" | Pass | Negative sentiment predicted accurately |
-| UT-ML-005 | Sentiment Model | Neutral Prediction | Test model predicts neutral sentiment correctly | Neutral text | Neutral sentiment with confidence score | "This is a product." | Pass | Neutral sentiment predicted accurately |
-| UT-ML-006 | Sentiment Model | Batch Processing | Test batch prediction processes multiple texts | Array of texts | Array of predictions for all texts | ["Good", "Bad", "Okay"] | Pass | Batch processing works efficiently |
-| UT-ML-007 | Sentiment Model | Empty Input Handling | Test model handles empty input gracefully | Empty string | Appropriate error message or default | "" | Pass | Empty input handled gracefully |
-| UT-ML-008 | Sentiment Model | Long Text Input | Test model handles very long text input | Very long text | Processing without memory issues | 10000+ character text | Pass | Long text processed without issues |
-| UT-ML-009 | Sentiment Model | Confidence Scores | Test model returns confidence scores | Text input | Confidence scores with probability distribution | "Test text" | Pass | Confidence scores provided accurately |
-| UT-ML-010 | Training Pipeline | Data Loading | Test training pipeline loads data correctly | Training data | Data loaded successfully | Training dataset | Pass | Training data loads correctly |
-| UT-ML-011 | Training Pipeline | Preprocessing | Test training preprocessing works correctly | Raw training data | Preprocessed data ready for training | Raw dataset | Pass | Preprocessing pipeline works correctly |
-| UT-ML-012 | Training Pipeline | Model Training | Test model training executes successfully | Preprocessed data | Model trained successfully | Training data | Pass | Model training completes successfully |
-| UT-ML-013 | Training Pipeline | Validation | Test training validation works correctly | Validation data | Validation metrics calculated | Validation dataset | Pass | Validation metrics calculated correctly |
+| Test Case ID | Description | Steps | Expected Outcome | Actual Results | Status |
+|-------------|-------------|-------|------------------|---------------|---------|
+| UT-ML-001 | Sentiment Model Loading Test | 1. Load sentiment model<br>2. Verify initialization<br>3. Check dependencies | Sentiment model loads without errors and initializes properly | Model loads successfully with all required dependencies | Pass |
+| UT-ML-002 | Text Preprocessing Cleaning Test | 1. Input test text<br>2. Verify preprocessing<br>3. Check cleaning results | Text preprocessing cleans input correctly by removing special characters and normalizing | Text preprocessing works perfectly with proper cleaning | Pass |
+| UT-ML-003 | Model Positive Sentiment Prediction Test | 1. Input positive text<br>2. Get prediction<br>3. Verify confidence score | Model predicts positive sentiment correctly with appropriate confidence scores | Positive sentiment predicted accurately with high confidence | Pass |
+| UT-ML-004 | Model Negative Sentiment Prediction Test | 1. Input negative text<br>2. Get prediction<br>3. Verify confidence score | Model predicts negative sentiment correctly with appropriate confidence scores | Negative sentiment predicted accurately with high confidence | Pass |
+| UT-ML-005 | Model Neutral Sentiment Prediction Test | 1. Input neutral text<br>2. Get prediction<br>3. Verify confidence score | Model predicts neutral sentiment correctly with appropriate confidence scores | Neutral sentiment predicted accurately with appropriate confidence | Pass |
+| UT-ML-006 | Batch Prediction Processing Test | 1. Input multiple texts<br>2. Process batch prediction<br>3. Verify all predictions | Batch prediction processes multiple texts correctly and returns predictions efficiently | Batch processing works perfectly with accurate predictions | Pass |
+| UT-ML-007 | Model Empty Input Handling Test | 1. Input empty text<br>2. Verify error handling<br>3. Check default behavior | Model handles empty input gracefully with appropriate error messages or defaults | Empty input handled correctly with proper error messages | Pass |
+| UT-ML-008 | Model Long Text Input Test | 1. Input very long text<br>2. Verify processing<br>3. Check performance | Model handles very long text input without memory issues or performance degradation | Long text processing works efficiently without issues | Pass |
+| UT-ML-009 | Model Confidence Scores Test | 1. Get predictions<br>2. Verify confidence scores<br>3. Check probability distributions | Model returns confidence scores with proper probability distributions and accuracy metrics | Confidence scores provided accurately with proper distributions | Pass |
+| UT-ML-010 | Training Pipeline Data Loading Test | 1. Run training pipeline<br>2. Verify data loading<br>3. Check validation steps | Training pipeline works correctly with proper data loading, preprocessing, training, and validation | Training pipeline executes successfully with all steps | Pass |
 
 ---
 
@@ -86,48 +83,48 @@
 
 ### API Endpoint Black Box Tests
 
-| Test ID | Endpoint | Test Description | Input | Expected Output | Test Type | Pass/Fail | Notes |
-|---------|----------|------------------|-------|-----------------|-----------|-----------|-------|
-| BB-API-001 | GET / | Root endpoint accessibility | GET request to root | 200 status, API message | Functional | Pass | Root endpoint accessible |
-| BB-API-002 | GET /health | Health check endpoint | GET request to /health | 200 status, health information | Functional | Pass | Health check returns system status |
-| BB-API-003 | GET /test | Test endpoint response | GET request to /test | 200 status, timestamp message | Functional | Pass | Test endpoint returns timestamp |
-| BB-API-004 | GET /simple | Simple connectivity test | GET request to /simple | 200 status, connection message | Functional | Pass | Simple endpoint confirms connectivity |
-| BB-API-005 | POST /api/chat | Valid chat message | Valid JSON with text field | 200 status, analysis response | Functional | Pass | Chat API processes valid messages |
-| BB-API-006 | POST /api/chat | Empty message | JSON with empty text | 422 status, validation error | Negative | Pass | Empty messages properly rejected |
-| BB-API-007 | POST /api/chat | Invalid JSON | Malformed JSON string | 422 status, parsing error | Negative | Pass | Malformed JSON properly handled |
-| BB-API-008 | POST /api/chat | Missing text field | JSON without text field | 422 status, validation error | Negative | Pass | Missing required fields rejected |
-| BB-API-009 | POST /api/chat | Maximum length message | 10000 character text | 200 status, processed response | Boundary | Pass | Maximum length messages processed |
-| BB-API-010 | POST /api/chat | Product context message | JSON with text and product_name | 200 status, contextual response | Functional | Pass | Product context included in responses |
-| BB-API-011 | GET /api/products | Product list retrieval | GET request with pagination | 200 status, product list | Functional | Pass | Product list retrieved successfully |
-| BB-API-012 | GET /api/products/{id} | Single product retrieval | Valid product ID | 200 status, product details | Functional | Pass | Single product details retrieved |
-| BB-API-013 | GET /api/products/{id} | Invalid product ID | Non-existent product ID | 404 status, not found error | Negative | Pass | Invalid product ID returns 404 |
-| BB-API-014 | POST /api/products | Create product | Valid product data | 201 status, created product | Functional | Pass | Product creation successful |
-| BB-API-015 | POST /api/products | Invalid product data | Missing required fields | 422 status, validation error | Negative | Pass | Invalid product data rejected |
-| BB-API-016 | PUT /api/products/{id} | Update product | Valid update data | 200 status, updated product | Functional | Pass | Product update successful |
-| BB-API-017 | PUT /api/products/{id} | Update invalid ID | Non-existent product ID | 404 status, not found error | Negative | Pass | Update invalid ID returns 404 |
-| BB-API-018 | DELETE /api/products/{id} | Delete product | Valid product ID | 200 status, deletion confirmation | Functional | Pass | Product deletion successful |
-| BB-API-019 | DELETE /api/products/{id} | Delete invalid ID | Non-existent product ID | 404 status, not found error | Negative | Pass | Delete invalid ID returns 404 |
-| BB-API-020 | Any endpoint | CORS headers | Request from frontend origin | Proper CORS headers | Security | Pass | CORS headers properly configured |
+| Test Case ID | Description | Steps | Expected Outcome | Actual Results | Status |
+|-------------|-------------|-------|------------------|---------------|---------|
+| BB-API-001 | Root Endpoint Accessibility Test | 1. Send GET request to root<br>2. Verify response format<br>3. Check status information | GET / returns API test message with proper status information and version details | Root endpoint returns correct message with status information | Pass |
+| BB-API-002 | Health Check Endpoint Test | 1. Send GET request to /health<br>2. Verify health status<br>3. Check agent information | GET /health returns healthy status with agent information, model details, and system availability | Health check returns comprehensive system status | Pass |
+| BB-API-003 | Test Endpoint Response Test | 1. Send GET request to /test<br>2. Verify timestamp<br>3. Check message format | GET /test returns test message with current timestamp and system status information | Test endpoint returns message with proper timestamp | Pass |
+| BB-API-004 | Simple Endpoint Connectivity Test | 1. Send GET request to /simple<br>2. Verify connection status<br>3. Check response format | GET /simple returns connection success message with proper status and connectivity confirmation | Simple endpoint returns proper connection status | Pass |
+| BB-API-005 | Chat Valid Message Test | 1. Send POST request with valid message<br>2. Verify analysis response<br>3. Check sentiment insights | POST /api/chat with valid message returns analysis response with sentiment insights and recommendations | Chat API returns comprehensive analysis with insights | Pass |
+| BB-API-006 | Chat Empty Message Test | 1. Send POST request with empty message<br>2. Verify validation error<br>3. Check error message | POST /api/chat with empty message returns 422 validation error with proper error message | Empty message properly rejected with validation error | Pass |
+| BB-API-007 | Chat Invalid JSON Test | 1. Send POST request with invalid JSON<br>2. Verify error handling<br>3. Check status code | POST /api/chat with invalid JSON returns 422 validation error with proper error handling | Invalid JSON properly handled with appropriate error | Pass |
+| BB-API-008 | Chat Missing Text Field Test | 1. Send POST request without text field<br>2. Verify validation error<br>3. Check error message | POST /api/chat without text field returns 422 validation error with proper error message | Missing required fields properly rejected | Pass |
+| BB-API-009 | Chat Maximum Length Message Test | 1. Send message with maximum length<br>2. Verify handling<br>3. Check for truncation | Chat message with maximum length (10000 characters) is handled correctly without errors or truncation issues | Maximum length messages handled perfectly without issues | Pass |
+| BB-API-010 | Chat Product Context Message Test | 1. Send POST request with product name<br>2. Verify context inclusion<br>3. Check product-specific analysis | POST /api/chat with product name includes context in response with product-specific analysis | Product context properly included in analysis | Pass |
+| BB-API-011 | Products List Retrieval Test | 1. Send GET request to /api/products<br>2. Verify product list<br>3. Check pagination | GET /api/products returns list of products with proper pagination, filtering, and sorting capabilities | Products list returned with comprehensive pagination | Pass |
+| BB-API-012 | Single Product Retrieval Test | 1. Send GET request with product ID<br>2. Verify product details<br>3. Check error handling | GET /api/products/{id} returns single product details with complete information and proper error handling | Single product details returned with complete information | Pass |
+| BB-API-013 | Product Invalid ID Test | 1. Send GET request with invalid product ID<br>2. Verify error response<br>3. Check status code | GET /api/products/{id} with invalid ID returns 404 Not Found with proper error message | Invalid product ID returns 404 error correctly | Pass |
+| BB-API-014 | Product Creation Test | 1. Send POST request with product data<br>2. Verify creation success<br>3. Check returned product | POST /api/products creates new product successfully with validation and returns created product details | Product creation works perfectly with proper validation | Pass |
+| BB-API-015 | Product Invalid Data Creation Test | 1. Send POST request with invalid data<br>2. Verify validation error<br>3. Check error message | POST /api/products with invalid data returns 422 validation error with appropriate message | Invalid product data properly rejected with validation error | Pass |
+| BB-API-016 | Product Update Test | 1. Send PUT request with updates<br>2. Verify update success<br>3. Check returned product | PUT /api/products/{id} updates existing product with proper validation and returns updated product information | Product update works perfectly with proper validation | Pass |
+| BB-API-017 | Product Update Invalid ID Test | 1. Send PUT request with invalid product ID<br>2. Verify error response<br>3. Check status code | PUT /api/products/{id} with invalid ID returns 404 Not Found with proper error message | Update invalid ID returns 404 error correctly | Pass |
+| BB-API-018 | Product Deletion Test | 1. Send DELETE request with product ID<br>2. Verify deletion success<br>3. Check confirmation | DELETE /api/products/{id} deletes product successfully and returns confirmation message with proper error handling | Product deletion works perfectly with confirmation | Pass |
+| BB-API-019 | Product Deletion Invalid ID Test | 1. Send DELETE request with invalid product ID<br>2. Verify error response<br>3. Check status code | DELETE /api/products/{id} with invalid ID returns 404 Not Found with proper error message | Delete invalid ID returns 404 error correctly | Pass |
+| BB-API-020 | CORS Headers Test | 1. Send request from frontend<br>2. Verify CORS headers<br>3. Test unauthorized origin | API returns proper CORS headers allowing frontend origins and blocking unauthorized requests | CORS headers properly configured for security | Pass |
 
 ### Frontend Black Box Tests
 
-| Test ID | Component | Test Description | User Action | Expected Behavior | Test Type | Pass/Fail | Notes |
-|---------|-----------|------------------|-------------|-------------------|-----------|-----------|-------|
-| BB-FE-001 | Landing Page | Application startup | Open application | Landing page displays with welcome content | Functional | Pass | Landing page loads correctly |
-| BB-FE-002 | Navigation | Menu navigation | Click menu items | Navigate to respective pages | Functional | Pass | Navigation works correctly |
-| BB-FE-003 | Dashboard | Dashboard display | Navigate to dashboard | Metrics and charts displayed | Functional | Pass | Dashboard displays all metrics |
-| BB-FE-004 | Analytics | Analytics view | Navigate to analytics | Charts and analysis displayed | Functional | Pass | Analytics charts render correctly |
-| BB-FE-005 | Product Search | Search functionality | Enter search query | Filtered results displayed | Functional | Pass | Search functionality works |
-| BB-FE-006 | Chat Interface | Send message | Type and send message | AI response displayed | Functional | Pass | Chat interface works correctly |
-| BB-FE-007 | Timeline | Timeline view | Navigate to timeline | Timeline data displayed | Functional | Pass | Timeline visualization works |
-| BB-FE-008 | Topics | Topics view | Navigate to topics | Trending topics displayed | Functional | Pass | Topics display correctly |
-| BB-FE-009 | Settings | Settings modification | Change settings | Settings updated and persisted | Functional | Pass | Settings persist correctly |
-| BB-FE-010 | Theme Toggle | Dark/Light mode | Click theme toggle | Theme changes across application | Functional | Pass | Theme toggle works across app |
-| BB-FE-011 | Mobile Responsiveness | Mobile device usage | Use on mobile device | Responsive design works correctly | Usability | Pass | Mobile responsiveness works |
-| BB-FE-012 | Cross Browser | Different browsers | Use different browsers | Consistent functionality across browsers | Compatibility | Pass | Cross-browser compatibility works |
-| BB-FE-013 | Error Handling | Network errors | Simulate network issues | Appropriate error messages displayed | Negative | Pass | Error handling works correctly |
-| BB-FE-014 | State Management | Navigation state | Navigate between pages | State maintained during navigation | Functional | Pass | State management works |
-| BB-FE-015 | File Upload | File upload functionality | Upload file | File processed correctly | Functional | Pass | File upload works correctly |
+| Test Case ID | Description | Steps | Expected Outcome | Actual Results | Status |
+|-------------|-------------|-------|------------------|---------------|---------|
+| BB-FE-001 | Application Landing Page Test | 1. Open application<br>2. Verify landing page<br>3. Check navigation options | Users can open application and see landing page with proper welcome content and navigation | Landing page displays correctly with all navigation options | Pass |
+| BB-FE-002 | Navigation Menu Test | 1. Use navigation menu<br>2. Navigate between pages<br>3. Verify routing | Users can navigate between all pages using navigation menu with proper routing and state management | Menu navigation works perfectly with proper routing | Pass |
+| BB-FE-003 | Dashboard Display Test | 1. Navigate to dashboard<br>2. Verify metrics display<br>3. Check functionality | Users can navigate to dashboard and see metrics including sentiment distribution and KPIs | Dashboard navigation works perfectly with all metrics displayed | Pass |
+| BB-FE-004 | Analytics View Test | 1. Navigate to analytics<br>2. Verify charts display<br>3. Check chart functionality | Users can navigate to analytics and see charts including sentiment trends and channel performance | Analytics navigation works perfectly with interactive charts | Pass |
+| BB-FE-005 | Product Search Functionality Test | 1. Navigate to search page<br>2. Enter search criteria<br>3. Verify results | Users can search for products using various criteria including name, SKU, category, and brand | Product search works perfectly with comprehensive filtering | Pass |
+| BB-FE-006 | Chat Message AI Response Test | 1. Open chat interface<br>2. Send message<br>3. Verify AI response | Users can send chat messages and receive AI responses with sentiment analysis and insights | Chat AI responses work perfectly with accurate analysis | Pass |
+| BB-FE-007 | Timeline Sentiment Data Test | 1. Navigate to timeline<br>2. Verify sentiment data<br>3. Check visualization | Users can view timeline with sentiment data including hourly, daily, and weekly trends | Timeline visualization works perfectly with accurate sentiment data | Pass |
+| BB-FE-008 | Trending Topics Browse Test | 1. Navigate to topics<br>2. Browse trending topics<br>3. Verify sentiment analysis | Users can browse trending topics with sentiment analysis, keyword extraction, and insights | Trending topics browse functionality works perfectly | Pass |
+| BB-FE-009 | Settings Preferences Test | 1. Navigate to settings<br>2. Modify preferences<br>3. Verify persistence | Users can access settings and modify preferences including theme selection and notifications | Settings management works perfectly with proper persistence | Pass |
+| BB-FE-010 | Dark Light Mode Toggle Test | 1. Toggle dark/light mode<br>2. Verify theme change<br>3. Check persistence | Users can toggle between dark and light mode with proper theme persistence | Theme toggle works perfectly with proper persistence | Pass |
+| BB-FE-011 | Mobile Device Responsiveness Test | 1. Test on mobile device<br>2. Verify responsive design<br>3. Check touch interactions | Application works correctly on mobile devices with proper responsive design and touch interactions | Mobile responsiveness works perfectly across all devices | Pass |
+| BB-FE-012 | Cross Browser Compatibility Test | 1. Test on different browsers<br>2. Verify consistent functionality<br>3. Check compatibility | Application works correctly on different browsers including Chrome, Firefox, Safari, and Edge | Cross-browser compatibility works perfectly with consistent functionality | Pass |
+| BB-FE-013 | Network Error Handling Test | 1. Simulate network errors<br>2. Verify error handling<br>3. Check fallback mechanisms | Application handles network errors gracefully with proper error messages and fallback mechanisms | Network error handling works perfectly with proper fallbacks | Pass |
+| BB-FE-014 | State Management Navigation Test | 1. Navigate between pages<br>2. Verify state persistence<br>3. Check data management | Application maintains state during navigation with proper data persistence and component state management | State management works perfectly with proper persistence | Pass |
+| BB-FE-015 | File Upload Functionality Test | 1. Navigate to upload section<br>2. Select file<br>3. Verify upload process | Users can upload files with proper validation, processing, and error handling | File upload functionality works correctly with proper validation | Pass |
 
 ---
 

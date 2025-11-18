@@ -1,5 +1,6 @@
-google-adk==1.14.1
-google-generativeai==0.8.3
+google-adk>=1.14.1
+google-generativeai>=0.8.3
+pydantic>=2.0.0
 fastapi==0.116.2
 uvicorn==0.35.0
 uvicorn[standard]==0.35.0
@@ -10,3 +11,6 @@ sqlalchemy==2.0.23
 alembic==1.13.1
 asyncpg==0.29.0
 httpx>=0.28.1
+# Database drivers for product lookup tool
+pymysql>=1.1.0
+mysql-connector-python>=8.0.33
