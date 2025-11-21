@@ -2,7 +2,10 @@
 
 # BrandPulse Docker Startup Script
 # This script sets up all containers, networks, and displays service information
+# By default, it rebuilds all containers to ensure latest changes are included
 # Usage: ./start.sh [--quick] [--skip-wait]
+#   --quick: Skip rebuild and start existing containers (faster startup)
+#   --skip-wait: Skip health checks and wait times
 
 set -e  # Exit on error
 
@@ -106,16 +109,15 @@ stop_existing() {
 start_services() {
     print_header "Starting BrandPulse Services"
     
-    # In quick mode, always skip build
+    # In quick mode, skip build for faster startup
     if [ "$QUICK_MODE" = true ]; then
         print_info "Quick mode: Starting containers without build..."
         docker compose up -d
-    # Check if images exist, if so skip build for faster startup
-    elif docker images | grep -q "brandpulse-backend\|brandpulse-frontend\|brandpulse-database-api"; then
-        print_info "Images found, starting containers (skipping build)..."
-        docker compose up -d
     else
-        print_info "Building and starting containers (first time setup)..."
+        # Default behavior: Always rebuild everything to ensure latest changes
+        # Using --build flag which rebuilds images but uses cache when possible
+        print_info "Rebuilding all containers with latest changes..."
+        print_info "This ensures all code changes are included..."
         docker compose up -d --build
     fi
     

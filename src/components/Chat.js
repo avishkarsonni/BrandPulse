@@ -17,8 +17,10 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { apiService } from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
 
 const Chat = () => {
+  const { darkMode } = useTheme();
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -144,7 +146,7 @@ const Chat = () => {
       <Paper elevation={2} sx={{ p: 2, borderRadius: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Avatar sx={{ bgcolor: 'primary.main' }}>
+            <Avatar sx={{ bgcolor: darkMode ? '#00C8FF' : '#007BFF' }}>
               <ChatIcon />
             </Avatar>
             <Box>
@@ -200,7 +202,9 @@ const Chat = () => {
                 sx={{
                   width: 36,
                   height: 36,
-                  bgcolor: message.sender === 'user' ? 'primary.main' : 'grey.300',
+                  bgcolor: message.sender === 'user' 
+                    ? (darkMode ? '#00C8FF' : '#007BFF')
+                    : (darkMode ? '#808080' : '#E0E0E0'),
                 }}
               >
                 {message.sender === 'user' ? '👤' : '🧠'}
@@ -209,10 +213,17 @@ const Chat = () => {
                 elevation={1}
                 sx={{
                   p: 2,
-                  bgcolor: message.sender === 'user' ? 'primary.main' : 'grey.100',
-                  color: message.sender === 'user' ? 'white' : 'text.primary',
+                  // User messages: Threat Sentinel theme colors
+                  bgcolor: message.sender === 'user' 
+                    ? (darkMode ? '#00C8FF' : '#007BFF')  // Cyan in dark mode, Blue in light mode
+                    : (darkMode ? '#404040' : '#F8F9FA'), // Dark grey in dark mode, Light grey in light mode
+                  // All text: Black in light mode, White in dark mode
+                  color: darkMode ? '#FFFFFF' : '#1A1A1A',
                   borderRadius: 2,
                   maxWidth: '100%',
+                  border: message.sender === 'user' 
+                    ? 'none' 
+                    : (darkMode ? '1px solid #808080' : '1px solid #E0E0E0'),
                 }}
               >
                 {message.sender === 'ai' ? (
@@ -252,12 +263,28 @@ const Chat = () => {
                         color: 'inherit',
                       },
                       '& code': {
-                        bgcolor: 'rgba(0,0,0,0.1)',
+                        bgcolor: darkMode 
+                          ? (message.sender === 'user' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)')
+                          : (message.sender === 'user' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'),
+                        color: darkMode ? '#FFFFFF' : '#1A1A1A',
                         px: 0.5,
                         py: 0.25,
                         borderRadius: 1,
                         fontSize: '0.8rem',
                         fontFamily: 'monospace',
+                      },
+                      '& pre': {
+                        bgcolor: darkMode 
+                          ? (message.sender === 'user' ? 'rgba(255,255,255,0.15)' : '#1A1A1A')
+                          : (message.sender === 'user' ? 'rgba(255,255,255,0.15)' : '#F0F0F0'),
+                        color: darkMode ? '#FFFFFF' : '#1A1A1A',
+                        p: 1,
+                        borderRadius: 1,
+                        overflow: 'auto',
+                      },
+                      '& pre code': {
+                        bgcolor: 'transparent',
+                        color: 'inherit',
                       },
                     }}
                   >
@@ -266,15 +293,25 @@ const Chat = () => {
                     </ReactMarkdown>
                   </Box>
                 ) : (
-                  <Typography variant="body2">{message.text}</Typography>
+                  <Typography 
+                    variant="body2"
+                    sx={{
+                      color: darkMode ? '#FFFFFF' : '#1A1A1A',
+                      fontWeight: 400,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {message.text}
+                  </Typography>
                 )}
                 <Typography
                   variant="caption"
                   sx={{
                     display: 'block',
                     mt: 1,
-                    opacity: 0.7,
+                    color: darkMode ? 'rgba(255,255,255,0.7)' : '#808080',
                     fontSize: '0.7rem',
+                    fontWeight: 400,
                   }}
                 >
                   {message.timestamp}
@@ -287,7 +324,7 @@ const Chat = () => {
       </Box>
 
       {/* Input Area */}
-      <Paper elevation={3} sx={{ p: 2, borderRadius: 0 }}>
+      <Paper elevation={3} sx={{ p: 2, borderRadius: 0, bgcolor: 'background.paper' }}>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
           <TextField
             fullWidth
@@ -300,19 +337,49 @@ const Chat = () => {
             disabled={isLoading}
             variant="outlined"
             size="small"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                bgcolor: darkMode ? '#404040' : '#FFFFFF',
+                color: darkMode ? '#FFFFFF' : '#1A1A1A',
+                '& fieldset': {
+                  borderColor: darkMode ? '#808080' : '#808080',
+                  borderWidth: 2,
+                },
+                '&:hover fieldset': {
+                  borderColor: darkMode ? '#00C8FF' : '#007BFF',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: darkMode ? '#00C8FF' : '#007BFF',
+                  borderWidth: 2,
+                },
+                '& input, & textarea': {
+                  color: darkMode ? '#FFFFFF' : '#1A1A1A',
+                  fontSize: '1rem',
+                  fontWeight: 400,
+                },
+                '& input::placeholder, & textarea::placeholder': {
+                  color: darkMode ? '#808080' : '#808080',
+                  opacity: 1,
+                },
+              },
+            }}
           />
           <IconButton
             color="primary"
             onClick={handleSendMessage}
             disabled={!inputMessage.trim() || isLoading}
             sx={{
-              bgcolor: 'primary.main',
-              color: 'white',
+              bgcolor: darkMode ? '#00C8FF' : '#007BFF',
+              color: '#FFFFFF',
+              minWidth: 48,
+              minHeight: 48,
               '&:hover': {
-                bgcolor: 'primary.dark',
+                bgcolor: darkMode ? '#66D9FF' : '#0056B3',
               },
               '&:disabled': {
-                bgcolor: 'grey.300',
+                bgcolor: '#808080',
+                color: '#FFFFFF',
+                opacity: 0.5,
               },
             }}
           >

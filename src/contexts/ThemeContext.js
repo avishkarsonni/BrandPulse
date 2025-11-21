@@ -29,24 +29,24 @@ export const CustomThemeProvider = ({ children }) => {
     palette: {
       mode: darkMode ? 'dark' : 'light',
       primary: {
-        main: darkMode ? '#90caf9' : '#2E7D32', // Changed to vibrant green
-        light: darkMode ? '#90caf9' : '#4CAF50',
-        dark: darkMode ? '#90caf9' : '#1B5E20',
-        contrastText: darkMode ? '#000' : '#fff',
+        main: darkMode ? '#00C8FF' : '#007BFF', // Threat Sentinel vibrant blue
+        light: darkMode ? '#66D9FF' : '#00C8FF', // Threat Sentinel light cyan-blue
+        dark: darkMode ? '#007BFF' : '#0056B3', // Threat Sentinel dark blue
+        contrastText: '#FFFFFF',
       },
       secondary: {
-        main: darkMode ? '#f48fb1' : '#FF6F00', // Changed to vibrant orange
-        light: darkMode ? '#f48fb1' : '#FF9800',
-        dark: darkMode ? '#f48fb1' : '#E65100',
-        contrastText: darkMode ? '#000' : '#fff',
+        main: darkMode ? '#66D9FF' : '#00C8FF', // Threat Sentinel cyan
+        light: darkMode ? '#00C8FF' : '#66D9FF',
+        dark: darkMode ? '#00C8FF' : '#007BFF',
+        contrastText: '#FFFFFF',
       },
       background: {
-        default: darkMode ? '#121212' : '#F8F9FA', // Lighter, more modern background
-        paper: darkMode ? '#1e1e1e' : '#FFFFFF',
+        default: darkMode ? '#1A1A1A' : '#FFFFFF', // Threat Sentinel dark/white
+        paper: darkMode ? '#404040' : '#FFFFFF', // Threat Sentinel dark grey/white
       },
       text: {
-        primary: darkMode ? '#ffffff' : '#1A1A1A', // Darker text for better contrast
-        secondary: darkMode ? '#b0b0b0' : '#424242',
+        primary: darkMode ? '#FFFFFF' : '#1A1A1A', // Threat Sentinel white/dark
+        secondary: darkMode ? '#808080' : '#404040', // Threat Sentinel grey
       },
       success: {
         main: darkMode ? '#4caf50' : '#2E7D32',
@@ -118,9 +118,9 @@ export const CustomThemeProvider = ({ children }) => {
       MuiAppBar: {
         styleOverrides: {
           root: {
-            backgroundColor: darkMode ? '#1e1e1e' : '#2E7D32',
-            boxShadow: darkMode ? '0px 2px 4px rgba(0,0,0,0.3)' : '0px 4px 12px rgba(46, 125, 50, 0.15)',
-            height: darkMode ? '64px' : '72px', // Taller header in light mode
+            backgroundColor: darkMode ? '#1A1A1A' : '#007BFF', // Threat Sentinel colors
+            boxShadow: darkMode ? '0px 2px 4px rgba(0,0,0,0.3)' : '0px 4px 12px rgba(0, 123, 255, 0.25)',
+            height: darkMode ? '64px' : '72px',
           },
         },
       },
@@ -145,13 +145,13 @@ export const CustomThemeProvider = ({ children }) => {
         styleOverrides: {
           root: {
             '&.MuiTypography-h1': {
-              background: darkMode ? 'none' : 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
+              background: darkMode ? 'none' : 'linear-gradient(135deg, #007BFF 0%, #00C8FF 100%)',
               WebkitBackgroundClip: darkMode ? 'none' : 'text',
               WebkitTextFillColor: darkMode ? 'inherit' : 'transparent',
               backgroundClip: darkMode ? 'none' : 'text',
             },
             '&.MuiTypography-h2': {
-              background: darkMode ? 'none' : 'linear-gradient(135deg, #1976D2 0%, #42A5F5 100%)',
+              background: darkMode ? 'none' : 'linear-gradient(135deg, #0056B3 0%, #007BFF 100%)',
               WebkitBackgroundClip: darkMode ? 'none' : 'text',
               WebkitTextFillColor: darkMode ? 'inherit' : 'transparent',
               backgroundClip: darkMode ? 'none' : 'text',

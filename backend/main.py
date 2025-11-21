@@ -2028,39 +2028,221 @@ async def get_topics_analysis(timeRange: str = "7d"):
 @app.get("/api/dashboard/overview")
 async def get_dashboard_overview():
     """
-    Get dashboard overview data
+    Get dashboard overview data from real database
     """
     try:
-        print("📊 Dashboard overview endpoint called")
+        connection, driver = await get_database_connection()
+        if not connection:
+            raise HTTPException(status_code=500, detail="Database connection failed")
+        
+        if driver == "pymysql":
+            import pymysql
+            cursor = connection.cursor(pymysql.cursors.DictCursor)
+        else:
+            cursor = connection.cursor(dictionary=True)
+        
+        # Get total reviews count
+        cursor.execute("SELECT COUNT(*) as total FROM sentiment_analysis")
+        total_reviews = cursor.fetchone()['total'] or 0
+        
+        # Get sentiment breakdown
+        cursor.execute("""
+            SELECT 
+                sentiment,
+                COUNT(*) as count,
+                ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM sentiment_analysis), 2) as percentage
+            FROM sentiment_analysis
+            GROUP BY sentiment
+        """)
+        sentiment_breakdown = cursor.fetchall()
+        
+        positive_count = next((s['count'] for s in sentiment_breakdown if s['sentiment'] == 'positive'), 0)
+        negative_count = next((s['count'] for s in sentiment_breakdown if s['sentiment'] == 'negative'), 0)
+        neutral_count = next((s['count'] for s in sentiment_breakdown if s['sentiment'] == 'neutral'), 0)
+        
+        positive_percent = next((s['percentage'] for s in sentiment_breakdown if s['sentiment'] == 'positive'), 0)
+        negative_percent = next((s['percentage'] for s in sentiment_breakdown if s['sentiment'] == 'negative'), 0)
+        neutral_percent = next((s['percentage'] for s in sentiment_breakdown if s['sentiment'] == 'neutral'), 0)
+        
+        # Get today's reviews
+        cursor.execute("""
+            SELECT COUNT(*) as count 
+            FROM sentiment_analysis 
+            WHERE DATE(timestamp) = CURDATE()
+        """)
+        today_reviews = cursor.fetchone()['count'] or 0
+        
+        # Get total products
+        cursor.execute("SELECT COUNT(*) as total FROM products WHERE status = 'active'")
+        total_products = cursor.fetchone()['total'] or 0
+        
+        # Get average sentiment score
+        cursor.execute("SELECT AVG(score) as avg_score FROM sentiment_analysis")
+        avg_score_result = cursor.fetchone()
+        avg_sentiment_score = float(avg_score_result['avg_score']) if avg_score_result['avg_score'] else 0.0
+        
+        # Calculate customer satisfaction (0-5 scale from -1 to 1 sentiment)
+        customer_satisfaction = round((avg_sentiment_score + 1) * 2.5, 1)
+        
+        # Get weekly data (last 7 days)
+        cursor.execute("""
+            SELECT 
+                DAYNAME(timestamp) as day_name,
+                DAYOFWEEK(timestamp) as day_num,
+                SUM(CASE WHEN sentiment = 'positive' THEN 1 ELSE 0 END) as positive,
+                SUM(CASE WHEN sentiment = 'negative' THEN 1 ELSE 0 END) as negative,
+                SUM(CASE WHEN sentiment = 'neutral' THEN 1 ELSE 0 END) as neutral
+            FROM sentiment_analysis
+            WHERE timestamp >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            GROUP BY DAYNAME(timestamp), DAYOFWEEK(timestamp)
+            ORDER BY DAYOFWEEK(timestamp)
+        """)
+        weekly_data_raw = cursor.fetchall()
+        
+        # Map to day abbreviations
+        day_map = {1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun'}
+        weekly_data = [
+            {"day": day_map.get(row['day_num'], 'Unknown'), 
+             "positive": int(row['positive'] or 0),
+             "negative": int(row['negative'] or 0),
+             "neutral": int(row['neutral'] or 0)}
+            for row in weekly_data_raw
+        ]
+        
+        # Calculate growth (compare last 7 days to previous 7 days)
+        cursor.execute("""
+            SELECT COUNT(*) as count 
+            FROM sentiment_analysis 
+            WHERE timestamp >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        """)
+        last_week = cursor.fetchone()['count'] or 0
+        
+        cursor.execute("""
+            SELECT COUNT(*) as count 
+            FROM sentiment_analysis 
+            WHERE timestamp >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+            AND timestamp < DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        """)
+        prev_week = cursor.fetchone()['count'] or 0
+        
+        weekly_growth = round(((last_week - prev_week) / prev_week * 100) if prev_week > 0 else 0, 1)
+        
+        cursor.close()
+        connection.close()
+        
         return {
-            "totalReviews": 15847,
-            "positivePercent": 68.2,
-            "negativePercent": 18.5,
-            "neutralPercent": 13.3,
-            "todayReviews": 1247,
-            "weeklyGrowth": 12.5,
-            "monthlyGrowth": 8.7,
-            "avgResponseTime": "1.8 hours",
-            "customerSatisfaction": 4.2,
-            "topPositiveTopics": ["Quality", "Performance", "Design"],
-            "topNegativeTopics": ["Price", "Support", "Delivery"],
-            "recentAlerts": [
-                {"type": "info", "message": "Analysis completed", "time": "Just now"},
-                {"type": "success", "message": "Positive sentiment trend detected", "time": "1 hour ago"},
-            ],
-            "weeklyData": [
-                {"day": "Mon", "positive": 120, "negative": 30, "neutral": 20},
-                {"day": "Tue", "positive": 150, "negative": 25, "neutral": 15},
-                {"day": "Wed", "positive": 180, "negative": 40, "neutral": 25},
-                {"day": "Thu", "positive": 200, "negative": 35, "neutral": 30},
-                {"day": "Fri", "positive": 220, "negative": 45, "neutral": 35},
-                {"day": "Sat", "positive": 190, "negative": 30, "neutral": 25},
-                {"day": "Sun", "positive": 160, "negative": 20, "neutral": 20},
+            "totalReviews": total_reviews,
+            "totalProducts": total_products,
+            "positivePercent": round(positive_percent, 1),
+            "negativePercent": round(negative_percent, 1),
+            "neutralPercent": round(neutral_percent, 1),
+            "positiveCount": positive_count,
+            "negativeCount": negative_count,
+            "neutralCount": neutral_count,
+            "todayReviews": today_reviews,
+            "weeklyGrowth": weekly_growth,
+            "avgSentimentScore": round(avg_sentiment_score, 2),
+            "customerSatisfaction": customer_satisfaction,
+            "weeklyData": weekly_data if weekly_data else [
+                {"day": "Mon", "positive": 0, "negative": 0, "neutral": 0},
+                {"day": "Tue", "positive": 0, "negative": 0, "neutral": 0},
+                {"day": "Wed", "positive": 0, "negative": 0, "neutral": 0},
+                {"day": "Thu", "positive": 0, "negative": 0, "neutral": 0},
+                {"day": "Fri", "positive": 0, "negative": 0, "neutral": 0},
+                {"day": "Sat", "positive": 0, "negative": 0, "neutral": 0},
+                {"day": "Sun", "positive": 0, "negative": 0, "neutral": 0},
             ]
         }
     except Exception as e:
-        print(f"❌ Dashboard overview error: {e}")
+        logger.error(f"Dashboard overview error: {e}")
         raise HTTPException(status_code=500, detail=f"Dashboard error: {str(e)}")
+
+@app.get("/api/crawlers/statistics")
+async def get_crawler_statistics():
+    """
+    Get crawler statistics from database including last run times
+    """
+    try:
+        connection, driver = await get_database_connection()
+        if not connection:
+            raise HTTPException(status_code=500, detail="Database connection failed")
+        
+        if driver == "pymysql":
+            import pymysql
+            cursor = connection.cursor(pymysql.cursors.DictCursor)
+        else:
+            cursor = connection.cursor(dictionary=True)
+        
+        # Get crawler statistics by platform
+        cursor.execute("""
+            SELECT 
+                platform,
+                COUNT(*) as total_pages,
+                COUNT(DISTINCT product_id) as products_covered,
+                MAX(last_crawled) as last_crawled,
+                MIN(last_crawled) as first_crawled,
+                SUM(CASE WHEN last_crawled IS NOT NULL THEN 1 ELSE 0 END) as crawled_count,
+                SUM(CASE WHEN last_crawled IS NULL THEN 1 ELSE 0 END) as not_crawled_count
+            FROM product_pages
+            WHERE status = 'active'
+            GROUP BY platform
+            ORDER BY platform
+        """)
+        platform_stats = cursor.fetchall()
+        
+        # Get overall statistics
+        cursor.execute("""
+            SELECT 
+                COUNT(*) as total_pages,
+                COUNT(DISTINCT product_id) as total_products,
+                COUNT(DISTINCT platform) as total_platforms,
+                MAX(last_crawled) as most_recent_crawl,
+                SUM(CASE WHEN last_crawled IS NOT NULL THEN 1 ELSE 0 END) as total_crawled,
+                SUM(CASE WHEN last_crawled IS NULL THEN 1 ELSE 0 END) as total_not_crawled
+            FROM product_pages
+            WHERE status = 'active'
+        """)
+        overall_stats = cursor.fetchone()
+        
+        # Get recent crawls (last 24 hours)
+        cursor.execute("""
+            SELECT COUNT(*) as recent_crawls
+            FROM product_pages
+            WHERE last_crawled >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            AND status = 'active'
+        """)
+        recent_crawls = cursor.fetchone()['recent_crawls'] or 0
+        
+        cursor.close()
+        connection.close()
+        
+        return {
+            "overall": {
+                "totalPages": overall_stats['total_pages'] or 0,
+                "totalProducts": overall_stats['total_products'] or 0,
+                "totalPlatforms": overall_stats['total_platforms'] or 0,
+                "totalCrawled": overall_stats['total_crawled'] or 0,
+                "totalNotCrawled": overall_stats['total_not_crawled'] or 0,
+                "mostRecentCrawl": overall_stats['most_recent_crawl'].isoformat() if overall_stats['most_recent_crawl'] else None,
+                "recentCrawls24h": recent_crawls
+            },
+            "byPlatform": [
+                {
+                    "platform": stat['platform'] or 'Unknown',
+                    "totalPages": stat['total_pages'] or 0,
+                    "productsCovered": stat['products_covered'] or 0,
+                    "lastCrawled": stat['last_crawled'].isoformat() if stat['last_crawled'] else None,
+                    "firstCrawled": stat['first_crawled'].isoformat() if stat['first_crawled'] else None,
+                    "crawledCount": stat['crawled_count'] or 0,
+                    "notCrawledCount": stat['not_crawled_count'] or 0,
+                    "crawlRate": round((stat['crawled_count'] / stat['total_pages'] * 100) if stat['total_pages'] > 0 else 0, 1)
+                }
+                for stat in platform_stats
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Crawler statistics error: {e}")
+        raise HTTPException(status_code=500, detail=f"Crawler statistics error: {str(e)}")
 
 @app.get("/api/analytics/sentiment")
 async def get_sentiment_analysis(timeRange: str = "7d", channel: str = "all"):
@@ -2428,6 +2610,60 @@ async def get_product_details(product_id: int):
         raise HTTPException(status_code=404, detail="Product not found")
     
     return product
+
+@app.get("/api/products/{product_id}/pages")
+async def get_product_pages(product_id: int):
+    """
+    Get all pages/URLs related to a specific product
+    """
+    try:
+        connection, driver = await get_database_connection()
+        if not connection:
+            # Return mock data if database not available
+            return {
+                "pages": [
+                    {
+                        "id": 1,
+                        "url": f"https://example.com/product/{product_id}",
+                        "page_type": "product_page",
+                        "platform": "website",
+                        "title": f"Product {product_id} - Official Page"
+                    }
+                ]
+            }
+        
+        if driver == "pymysql":
+            import pymysql
+            cursor = connection.cursor(pymysql.cursors.DictCursor)
+        else:
+            cursor = connection.cursor(dictionary=True)
+        
+        query = """
+            SELECT id, url, page_type, platform, title, meta_description, 
+                   content_summary, last_crawled, status
+            FROM product_pages
+            WHERE product_id = %s AND status = 'active'
+            ORDER BY created_at DESC
+        """
+        
+        cursor.execute(query, [product_id])
+        pages = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return {
+            "pages": pages,
+            "total": len(pages)
+        }
+        
+    except Exception as e:
+        print(f"Error fetching product pages: {e}")
+        # Return empty pages on error
+        return {
+            "pages": [],
+            "total": 0
+        }
 
 def get_mock_topics_data():
     """Mock topics data for development"""

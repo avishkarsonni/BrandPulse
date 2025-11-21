@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import {
   Analytics,
-  Timeline,
+  Dashboard as DashboardIcon,
   Topic,
   Settings,
   TrendingUp,
@@ -69,8 +69,8 @@ const LandingPage = () => {
         // Update the global product context with enriched data
         updateProduct(productData, enrichedProductData);
         
-        // Navigate to dashboard with the selected product
-        navigate('/dashboard');
+        // Navigate to analytics with the selected product
+        navigate('/analytics');
       } else {
         setError(`No products found for "${productName}". Try searching for brands like Apple, Nike, Starbucks, or categories like Beauty, Food, Automotive.`);
       }
@@ -204,9 +204,9 @@ const LandingPage = () => {
       color: '#4caf50',
     },
     {
-      icon: <Timeline sx={{ fontSize: 40 }} />,
-      title: 'Timeline Analysis',
-      description: 'Track sentiment changes over time with detailed timeline views and trend analysis.',
+      icon: <DashboardIcon sx={{ fontSize: 40 }} />,
+      title: 'Dashboard Overview',
+      description: 'Get a comprehensive overview of all analytics, reviews, and crawler statistics in one place.',
       color: '#2196f3',
     },
     {
@@ -397,7 +397,7 @@ const LandingPage = () => {
                       py: 1.5,
                       '&:hover': { backgroundColor: '#f5f5f5' }
                     }}
-                    onClick={() => navigate('/dashboard')}
+                    onClick={() => navigate('/analytics')}
                   >
                     Get Started
                   </Button>
@@ -643,7 +643,7 @@ const LandingPage = () => {
                   <Button
                     variant="contained"
                     size="large"
-                    onClick={() => navigate('/dashboard')}
+                    onClick={() => navigate('/analytics')}
                     sx={{ 
                       px: 4, 
                       py: 1.5,
@@ -651,7 +651,7 @@ const LandingPage = () => {
                       fontWeight: 'bold',
                     }}
                   >
-                    Launch Dashboard
+                    Launch Analytics
                   </Button>
                 </motion.div>
               </Paper>

@@ -1,121 +1,129 @@
 import React, { useState, useEffect } from 'react';
+import { apiService } from '../services/api';
 import './WebCrawlers.css';
 
 const WebCrawlers = () => {
   const [crawlers, setCrawlers] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
   const [editingCrawler, setEditingCrawler] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
 
-  // Initialize crawler configurations
-  useEffect(() => {
-    const defaultCrawlers = [
-      {
-        id: 1,
-        name: 'Amazon Product Reviews',
-        platform: 'amazon',
-        status: 'active',
-        lastRun: '2025-10-16 14:30:00',
-        itemsCollected: 15847,
-        apiToken: '',
-        endpoint: 'https://api.amazon.com/reviews',
-        rateLimit: '100 requests/hour',
-        categories: ['Electronics', 'Books', 'Home & Garden'],
-        description: 'Crawls Amazon product reviews and ratings for sentiment analysis'
-      },
-      {
-        id: 2,
-        name: 'Twitter Social Mentions',
-        platform: 'twitter',
-        status: 'active',
-        lastRun: '2025-10-16 14:25:00',
-        itemsCollected: 8932,
-        apiToken: '',
-        endpoint: 'https://api.twitter.com/2/tweets/search',
-        rateLimit: '300 requests/15min',
-        categories: ['Social Media', 'Brand Mentions'],
-        description: 'Monitors Twitter for brand mentions and product discussions'
-      },
-      {
-        id: 3,
-        name: 'Reddit Product Discussions',
-        platform: 'reddit',
-        status: 'active',
-        lastRun: '2025-10-16 14:20:00',
-        itemsCollected: 5621,
-        apiToken: '',
-        endpoint: 'https://oauth.reddit.com/api/v1',
-        rateLimit: '60 requests/minute',
-        categories: ['Forums', 'Product Reviews'],
-        description: 'Scrapes Reddit for product discussions and user opinions'
-      },
-      {
-        id: 4,
-        name: 'YouTube Product Reviews',
-        platform: 'youtube',
-        status: 'paused',
-        lastRun: '2025-10-16 12:00:00',
-        itemsCollected: 3247,
-        apiToken: '',
-        endpoint: 'https://www.googleapis.com/youtube/v3',
-        rateLimit: '10,000 units/day',
-        categories: ['Video Reviews', 'Unboxing'],
-        description: 'Analyzes YouTube video comments and descriptions for product sentiment'
-      },
-      {
-        id: 5,
-        name: 'Instagram Brand Posts',
-        platform: 'instagram',
-        status: 'active',
-        lastRun: '2025-10-16 14:15:00',
-        itemsCollected: 7834,
-        apiToken: '',
-        endpoint: 'https://graph.instagram.com',
-        rateLimit: '200 requests/hour',
-        categories: ['Social Media', 'Visual Content'],
-        description: 'Monitors Instagram posts and stories for brand-related content'
-      },
-      {
-        id: 6,
-        name: 'Google Shopping Reviews',
-        platform: 'google',
-        status: 'inactive',
-        lastRun: '2025-10-15 18:30:00',
-        itemsCollected: 2156,
-        apiToken: '',
-        endpoint: 'https://developers.google.com/shopping-content',
-        rateLimit: '1,000 requests/day',
-        categories: ['Shopping', 'Product Reviews'],
-        description: 'Collects product reviews and ratings from Google Shopping'
-      },
-      {
-        id: 7,
-        name: 'TikTok Product Videos',
-        platform: 'tiktok',
-        status: 'inactive',
-        lastRun: '2025-10-14 20:45:00',
-        itemsCollected: 1892,
-        apiToken: '',
-        endpoint: 'https://open-api.tiktok.com',
-        rateLimit: '100 requests/day',
-        categories: ['Video Content', 'Viral Trends'],
-        description: 'Analyzes TikTok videos and comments for product mentions'
-      },
-      {
-        id: 8,
-        name: 'LinkedIn Professional Reviews',
-        platform: 'linkedin',
-        status: 'inactive',
-        lastRun: '2025-10-13 16:20:00',
-        itemsCollected: 945,
-        apiToken: '',
-        endpoint: 'https://api.linkedin.com/v2',
-        rateLimit: '500 requests/day',
-        categories: ['Professional Networks', 'B2B Reviews'],
-        description: 'Monitors LinkedIn for professional product recommendations'
+  // Fetch crawler data from database
+  const fetchCrawlerData = async () => {
+    try {
+      setLoading(true);
+      const data = await apiService.getCrawlerStatistics();
+      
+      if (data && data.byPlatform) {
+        // Transform database data to crawler format
+        const transformedCrawlers = data.byPlatform.map((platform, index) => {
+          const platformNames = {
+            'amazon': 'Amazon Product Reviews',
+            'twitter': 'Twitter Social Mentions',
+            'reddit': 'Reddit Product Discussions',
+            'youtube': 'YouTube Product Reviews',
+            'instagram': 'Instagram Brand Posts',
+            'google': 'Google Shopping Reviews',
+            'website': 'Website Product Pages',
+            'facebook': 'Facebook Brand Mentions',
+          };
+          
+          const descriptions = {
+            'amazon': 'Crawls Amazon product reviews and ratings for sentiment analysis',
+            'twitter': 'Monitors Twitter for brand mentions and product discussions',
+            'reddit': 'Scrapes Reddit for product discussions and user opinions',
+            'youtube': 'Analyzes YouTube video comments and descriptions for product sentiment',
+            'instagram': 'Monitors Instagram posts and stories for brand-related content',
+            'google': 'Collects product reviews and ratings from Google Shopping',
+            'website': 'Crawls official product websites for updates and information',
+            'facebook': 'Monitors Facebook for brand mentions and product discussions',
+          };
+          
+          const rateLimits = {
+            'amazon': '100 requests/hour',
+            'twitter': '300 requests/15min',
+            'reddit': '60 requests/minute',
+            'youtube': '10,000 units/day',
+            'instagram': '200 requests/hour',
+            'google': '1,000 requests/day',
+            'website': '500 requests/hour',
+            'facebook': '200 requests/hour',
+          };
+          
+          // Determine status based on last crawl time
+          const lastCrawled = platform.lastCrawled ? new Date(platform.lastCrawled) : null;
+          const hoursSinceCrawl = lastCrawled ? (new Date() - lastCrawled) / (1000 * 60 * 60) : Infinity;
+          let status = 'active';
+          if (!lastCrawled || hoursSinceCrawl > 48) {
+            status = 'inactive';
+          } else if (hoursSinceCrawl > 24) {
+            status = 'paused';
+          }
+          
+          return {
+            id: index + 1,
+            name: platformNames[platform.platform.toLowerCase()] || `${platform.platform} Crawler`,
+            platform: platform.platform.toLowerCase(),
+            status: status,
+            lastRun: platform.lastCrawled || null,
+            itemsCollected: platform.totalPages || 0,
+            productsCovered: platform.productsCovered || 0,
+            crawlRate: platform.crawlRate || 0,
+            apiToken: '',
+            endpoint: `https://api.${platform.platform.toLowerCase()}.com`,
+            rateLimit: rateLimits[platform.platform.toLowerCase()] || '100 requests/hour',
+            categories: [platform.platform.charAt(0).toUpperCase() + platform.platform.slice(1)],
+            description: descriptions[platform.platform.toLowerCase()] || `Crawls ${platform.platform} for product data`,
+          };
+        });
+        
+        setCrawlers(transformedCrawlers);
+        setLastUpdate(new Date());
       }
-    ];
-    setCrawlers(defaultCrawlers);
+    } catch (error) {
+      console.error('Error fetching crawler data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCrawlerData();
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchCrawlerData, 30000);
+    return () => clearInterval(interval);
   }, []);
+
+  const formatTimeAgo = (dateString) => {
+    if (!dateString) return 'Never';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    return date.toLocaleString();
+  };
+
+  const handleRunNow = async (crawler) => {
+    // Simulate running crawler - update last run time
+    const updatedCrawlers = crawlers.map(c => 
+      c.id === crawler.id 
+        ? { ...c, lastRun: new Date().toISOString(), status: 'active' }
+        : c
+    );
+    setCrawlers(updatedCrawlers);
+    setLastUpdate(new Date());
+    
+    // In a real implementation, this would trigger an actual crawler run
+    alert(`Running ${crawler.name}... This will update the last run time.`);
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -207,8 +215,20 @@ const WebCrawlers = () => {
               </div>
               <div className="stat">
                 <span className="label">Last Run:</span>
-                <span className="value">{new Date(crawler.lastRun).toLocaleString()}</span>
+                <span className="value">{formatTimeAgo(crawler.lastRun)}</span>
               </div>
+              {crawler.productsCovered && (
+                <div className="stat">
+                  <span className="label">Products Covered:</span>
+                  <span className="value">{crawler.productsCovered.toLocaleString()}</span>
+                </div>
+              )}
+              {crawler.crawlRate !== undefined && (
+                <div className="stat">
+                  <span className="label">Crawl Rate:</span>
+                  <span className="value">{crawler.crawlRate}%</span>
+                </div>
+              )}
               <div className="stat">
                 <span className="label">Rate Limit:</span>
                 <span className="value">{crawler.rateLimit}</span>
@@ -226,6 +246,13 @@ const WebCrawlers = () => {
             </div>
 
             <div className="crawler-actions">
+              <button 
+                className="btn-run"
+                onClick={() => handleRunNow(crawler)}
+                title="Run crawler now"
+              >
+                ▶ Run Now
+              </button>
               <button 
                 className={`action-btn ${crawler.status === 'active' ? 'pause' : 'start'}`}
                 onClick={() => handleToggleStatus(crawler.id)}

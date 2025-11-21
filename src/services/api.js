@@ -100,28 +100,24 @@ class ApiService {
   // Dashboard endpoints
   async getDashboardOverview() {
     try {
-      // First try to get real data from database API
-      const dbResponse = await dbApi.get('/analytics/overview');
-      if (dbResponse.data && dbResponse.data.total_products > 0) {
-        console.log('✅ Using real database data for dashboard');
-        return this.transformDatabaseToDashboard(dbResponse.data);
-      }
-      
-      // Fallback to backend API
-      console.log('⚠️ Database API not available, using backend mock data');
+      // Use backend API which now has real database integration
       const response = await api.get('/api/dashboard/overview');
+      console.log('✅ Using dashboard data from backend');
       return response.data;
     } catch (error) {
-      // Fallback to backend API if database API fails
-      console.warn('⚠️ Database API failed, trying backend API:', error.message);
-      try {
-        const response = await api.get('/api/dashboard/overview');
-        console.log('✅ Using backend mock data for dashboard');
-        return response.data;
-      } catch (backendError) {
-        console.error('❌ Both database and backend APIs failed:', backendError.message);
-        return null;
-      }
+      console.error('❌ Dashboard API failed:', error.message);
+      return null;
+    }
+  }
+
+  async getCrawlerStatistics() {
+    try {
+      const response = await api.get('/api/crawlers/statistics');
+      console.log('✅ Using crawler statistics from backend');
+      return response.data;
+    } catch (error) {
+      console.error('❌ Crawler statistics API failed:', error.message);
+      return null;
     }
   }
 
@@ -429,11 +425,13 @@ class ApiService {
   }
 
   // Timeline endpoints
-  async getTimelineData(timeRange = '7d', granularity = 'hourly') {
+  async getTimelineData(timeRange = '7d', granularity = 'hourly', productId = null) {
     try {
-      const response = await api.get('/api/analytics/timeline', {
-        params: { timeRange, granularity }
-      });
+      const params = { timeRange, granularity };
+      if (productId) {
+        params.product_id = productId;
+      }
+      const response = await api.get('/api/analytics/timeline', { params });
       return response.data;
     } catch (error) {
       console.warn('⚠️ No timeline data available:', error.message);
@@ -442,12 +440,15 @@ class ApiService {
   }
 
   // Topics endpoints
-  async getTopicsData(timeRange = '7d') {
+  async getTopicsData(timeRange = '7d', productId = null) {
     try {
+      const params = { timeRange };
+      if (productId) {
+        params.product_id = productId;
+      }
+      
       // Try database API first
-      const dbResponse = await dbApi.get('/analytics/topics', {
-        params: { timeRange }
-      });
+      const dbResponse = await dbApi.get('/analytics/topics', { params });
       if (dbResponse.data && dbResponse.data.topics && dbResponse.data.topics.length > 0) {
         console.log('✅ Using real database data for topics');
         return dbResponse.data;
@@ -455,17 +456,17 @@ class ApiService {
       
       // Fallback to backend API
       console.log('⚠️ Database API not available, using backend mock data');
-      const response = await api.get('/api/analytics/topics', {
-        params: { timeRange }
-      });
+      const response = await api.get('/api/analytics/topics', { params });
       return response.data;
     } catch (error) {
       // Fallback to backend API if database API fails
       console.warn('⚠️ Database API failed, trying backend API:', error.message);
       try {
-        const response = await api.get('/api/analytics/topics', {
-          params: { timeRange }
-        });
+        const params = { timeRange };
+        if (productId) {
+          params.product_id = productId;
+        }
+        const response = await api.get('/api/analytics/topics', { params });
         console.log('✅ Using backend mock data for topics');
         return response.data;
       } catch (backendError) {

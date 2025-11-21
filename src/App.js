@@ -17,9 +17,8 @@ import {
 } from '@mui/material';
 import {
   Menu as MenuIcon,
-  Dashboard as DashboardIcon,
   Analytics as AnalyticsIcon,
-  Timeline as TimelineIcon,
+  Dashboard as DashboardIcon,
   Topic as TopicIcon,
   Settings as SettingsIcon,
   Brightness4 as DarkModeIcon,
@@ -33,9 +32,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from './contexts/ThemeContext';
 import { ProductProvider } from './contexts/ProductContext';
 
-import Dashboard from './components/Dashboard';
 import Analytics from './components/Analytics';
-import Timeline from './components/Timeline';
+import Dashboard from './components/Dashboard';
 import Topics from './components/Topics';
 import Settings from './components/Settings';
 import LandingPage from './components/LandingPage';
@@ -61,7 +59,6 @@ function App() {
     { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
     { text: 'Product Search', icon: <SearchIcon />, path: '/search' },
     { text: 'Web Crawlers', icon: <WebIcon />, path: '/crawlers' },
-    { text: 'Timeline', icon: <TimelineIcon />, path: '/timeline' },
     { text: 'Topics', icon: <TopicIcon />, path: '/topics' },
     { text: 'Chat', icon: <ChatIcon />, path: '/chat' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
@@ -70,7 +67,7 @@ function App() {
   const drawer = (
     <div>
       <Toolbar sx={{ 
-        background: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
+        background: 'linear-gradient(135deg, #007BFF 0%, #00C8FF 100%)',
         color: 'white',
         minHeight: '80px !important',
         display: 'flex',
@@ -84,7 +81,7 @@ function App() {
           sx={{
             fontWeight: 700,
             textAlign: 'center',
-            background: 'linear-gradient(45deg, #ffffff 30%, #E8F5E8 90%)',
+            background: 'linear-gradient(45deg, #ffffff 30%, #66D9FF 90%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
@@ -148,8 +145,8 @@ function App() {
             width: { md: `calc(100% - ${drawerWidth}px)` },
             ml: { md: `${drawerWidth}px` },
             background: darkMode 
-              ? 'linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%)'
-              : 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
+              ? 'linear-gradient(135deg, #1A1A1A 0%, #404040 100%)'
+              : 'linear-gradient(135deg, #007BFF 0%, #00C8FF 100%)',
             boxShadow: darkMode 
               ? '0px 4px 12px rgba(0,0,0,0.4)'
               : '0px 6px 20px rgba(46, 125, 50, 0.25)',
@@ -179,8 +176,8 @@ function App() {
               sx={{
                 fontWeight: 700,
                 background: darkMode 
-                  ? 'linear-gradient(45deg, #ffffff 30%, #e0e0e0 90%)'
-                  : 'linear-gradient(45deg, #ffffff 30%, #E8F5E8 90%)',
+                  ? 'linear-gradient(45deg, #ffffff 30%, #66D9FF 90%)'
+                  : 'linear-gradient(45deg, #ffffff 30%, #66D9FF 90%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
@@ -270,17 +267,15 @@ function App() {
                 </motion.div>
               } />
               <Route path="/dashboard" element={
-                <ErrorBoundary>
-                  <motion.div
-                    key="dashboard"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.4 }}
-                  >
-                    <Dashboard />
-                  </motion.div>
-                </ErrorBoundary>
+                <motion.div
+                  key="dashboard"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <Dashboard />
+                </motion.div>
               } />
               <Route path="/analytics" element={
                 <motion.div
@@ -313,17 +308,6 @@ function App() {
                   transition={{ duration: 0.4 }}
                 >
                   <WebCrawlers />
-                </motion.div>
-              } />
-              <Route path="/timeline" element={
-                <motion.div
-                  key="timeline"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.4 }}
-                >
-                  <Timeline />
                 </motion.div>
               } />
               <Route path="/topics" element={
@@ -370,11 +354,11 @@ function App() {
             mt: 'auto',
             py: 3,
             px: 2,
-            backgroundColor: darkMode ? '#1e1e1e' : '#F8F9FA',
-            borderTop: darkMode ? '1px solid #333' : '1px solid #E0E0E0',
+            backgroundColor: darkMode ? '#1A1A1A' : '#FFFFFF',
+            borderTop: darkMode ? '1px solid #404040' : '1px solid #E0E0E0',
             background: darkMode 
-              ? 'linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%)'
-              : 'linear-gradient(135deg, #F8F9FA 0%, #E8F5E8 100%)',
+              ? 'linear-gradient(135deg, #1A1A1A 0%, #404040 100%)'
+              : 'linear-gradient(135deg, #FFFFFF 0%, #F8F9FA 100%)',
           }}
         >
           <Container maxWidth="xl">

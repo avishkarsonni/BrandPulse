@@ -1,0 +1,62 @@
+-- Product Image URLs Template
+-- Replace the placeholder URLs below with actual product image URLs
+-- Format: UPDATE products SET image_url = 'YOUR_IMAGE_URL_HERE' WHERE id = PRODUCT_ID;
+
+-- Product List (ID, Name, Brand, Category)
+-- 1. iPhone 15 Pro - Apple - Smartphones
+-- 2. Samsung Galaxy S24 - Samsung - Smartphones
+-- 3. Nike Air Max 270 - Nike - Footwear
+-- 4. MacBook Pro M3 - Apple - Laptops
+-- 5. Tesla Model Y - Tesla - Vehicles
+-- 6. Google Pixel 8 Pro - Google - Smartphones
+-- 7. Microsoft Surface Laptop 5 - Microsoft - Laptops
+-- 8. Sony WH-1000XM5 - Sony - Audio
+-- 9. Adidas Ultraboost 22 - Adidas - Footwear
+-- 10. iPad Pro 12.9" - Apple - Tablets
+-- 11. iPhone 15 - Apple - Smartphones
+-- 12. Samsung Galaxy S23 Ultra - Samsung - Smartphones
+-- 13. OnePlus 12 - OnePlus - Smartphones
+-- 14. Xiaomi 14 Pro - Xiaomi - Smartphones
+-- 15. Nothing Phone 2 - Nothing - Smartphones
+-- 16. Dell XPS 15 - Dell - Laptops
+-- 17. HP Spectre x360 - HP - Laptops
+-- 18. Lenovo ThinkPad X1 Carbon - Lenovo - Laptops
+-- 19. ASUS ROG Zephyrus G14 - ASUS - Laptops
+-- 20. Razer Blade 15 - Razer - Laptops
+-- 21. AirPods Pro 2 - Apple - Audio
+-- 22. Bose QuietComfort 45 - Bose - Audio
+-- 23. Sennheiser Momentum 4 - Sennheiser - Audio
+-- 24. JBL Flip 6 - JBL - Audio
+-- 25. Nike Air Force 1 - Nike - Footwear
+-- 26. Adidas Stan Smith - Adidas - Footwear
+-- 27. New Balance 990v5 - New Balance - Footwear
+-- 28. Vans Old Skool - Vans - Footwear
+-- 29. Puma RS-X - Puma - Footwear
+-- 30. iPad Air - Apple - Tablets
+-- 31. Samsung Galaxy Tab S9 - Samsung - Tablets
+-- 32. Microsoft Surface Pro 9 - Microsoft - Tablets
+-- 33. Apple Watch Series 9 - Apple - Wearables
+-- 34. Samsung Galaxy Watch 6 - Samsung - Wearables
+-- 35. Garmin Fenix 7 - Garmin - Wearables
+-- 36. iPhone 14 - Apple - Smartphones
+-- 37. Samsung Galaxy A54 - Samsung - Smartphones
+-- 38. Motorola Edge 40 - Motorola - Smartphones
+-- 39. Realme GT 5 - Realme - Smartphones
+-- 40. MacBook Air M2 - Apple - Laptops
+-- 41. Dell Inspiron 15 - Dell - Laptops
+-- 42. Acer Predator Helios - Acer - Laptops
+-- 43. MSI Stealth 16 - MSI - Laptops
+-- 44. Sony WF-1000XM5 - Sony - Audio
+-- 45. Apple AirPods 3 - Apple - Audio
+-- 46. Beats Studio Pro - Beats - Audio
+-- 47. Nike Dunk Low - Nike - Footwear
+-- 48. Adidas Yeezy 350 - Adidas - Footwear
+-- 49. iPad Mini - Apple - Tablets
+-- 50. Microsoft Surface Pro 9 - Microsoft - Tablets
+
+-- Template UPDATE statements (replace URLs with actual product images):
+-- UPDATE products SET image_url = 'YOUR_URL_HERE' WHERE id = 1; -- iPhone 15 Pro
+-- UPDATE products SET image_url = 'YOUR_URL_HERE' WHERE id = 2; -- Samsung Galaxy S24
+-- UPDATE products SET image_url = 'YOUR_URL_HERE' WHERE id = 3; -- Nike Air Max 270
+-- ... (and so on for all products)
+
