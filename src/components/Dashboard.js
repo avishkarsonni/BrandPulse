@@ -27,6 +27,29 @@ import { motion } from 'framer-motion';
 import { useProduct } from '../contexts/ProductContext';
 import { apiService } from '../services/api';
 
+// Animation variants - defined at module level to avoid hoisting issues
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      duration: 0.5,
+    },
+  },
+};
+
 const Dashboard = () => {
   const { selectedProduct, productData, clearProduct, updateProduct } = useProduct();
   const [loading, setLoading] = useState(true);
@@ -152,12 +175,25 @@ const Dashboard = () => {
   }, [selectedProduct, productData]);
 
   useEffect(() => {
-    fetchDashboardData();
+    // Wrap in try-catch to prevent unhandled errors
+    try {
+      fetchDashboardData();
+    } catch (err) {
+      console.error('Error in fetchDashboardData effect:', err);
+      setError('Failed to initialize dashboard. Please refresh the page.');
+      setLoading(false);
+    }
   }, [fetchDashboardData]);
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+      <Box 
+        display="flex" 
+        justifyContent="center" 
+        alignItems="center" 
+        minHeight="400px"
+        sx={{ backgroundColor: 'background.default' }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -165,9 +201,18 @@ const Dashboard = () => {
 
   if (error) {
     return (
-      <Alert severity="error" sx={{ mb: 2 }}>
-        {error}
-      </Alert>
+      <Box sx={{ p: 3, backgroundColor: 'background.default' }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+        <Button 
+          variant="contained" 
+          onClick={() => window.location.reload()}
+          sx={{ mt: 2 }}
+        >
+          Refresh Page
+        </Button>
+      </Box>
     );
   }
 
@@ -285,29 +330,6 @@ const Dashboard = () => {
   }
 
   const data = dashboardData;
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2,
-      },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        duration: 0.5,
-        ease: "easeOut",
-      },
-    },
-  };
 
   const cardVariants = {
     hidden: { scale: 0.8, opacity: 0 },

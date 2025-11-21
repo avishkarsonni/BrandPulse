@@ -57,6 +57,55 @@ check_docker() {
     print_success "Docker is running"
 }
 
+# Function to install Poetry if not present
+install_poetry() {
+    if ! command -v poetry > /dev/null 2>&1; then
+        print_status "Poetry not found. Installing Poetry..."
+        curl -sSL https://install.python-poetry.org | python3 -
+        export PATH="$HOME/.local/bin:$PATH"
+        
+        # Verify installation
+        if ! command -v poetry > /dev/null 2>&1; then
+            print_error "Poetry installation failed"
+            exit 1
+        fi
+        print_success "Poetry installed successfully"
+    else
+        print_success "Poetry is already installed"
+    fi
+}
+
+# Function to install Python dependencies asynchronously using Poetry
+install_python_dependencies() {
+    print_status "Installing Python dependencies with Poetry (async mode)..."
+    
+    # Configure Poetry for better performance
+    poetry config virtualenvs.create true
+    poetry config virtualenvs.in-project true
+    poetry config installer.parallel true
+    poetry config installer.max-workers 10
+    
+    # Install dependencies in parallel
+    print_status "Installing core dependencies..."
+    poetry install --no-dev --extras "all" &
+    POETRY_PID=$!
+    
+    # Show progress while installing
+    while kill -0 $POETRY_PID 2>/dev/null; do
+        echo -n "."
+        sleep 2
+    done
+    echo ""
+    
+    wait $POETRY_PID
+    if [ $? -eq 0 ]; then
+        print_success "Python dependencies installed successfully"
+    else
+        print_error "Failed to install Python dependencies"
+        exit 1
+    fi
+}
+
 # Function to install system dependencies
 install_dependencies() {
     print_status "Checking system dependencies..."
@@ -69,12 +118,21 @@ install_dependencies() {
             print_status "Installing curl..."
             sudo apt-get update && sudo apt-get install -y curl
         fi
+        # Install Python3 and pip if not present
+        if ! command -v python3 > /dev/null 2>&1; then
+            print_status "Installing Python3..."
+            sudo apt-get install -y python3 python3-pip python3-venv
+        fi
     elif command -v yum > /dev/null 2>&1; then
         # CentOS/RHEL
         print_status "Detected CentOS/RHEL system"
         if ! command -v curl > /dev/null 2>&1; then
             print_status "Installing curl..."
             sudo yum install -y curl
+        fi
+        if ! command -v python3 > /dev/null 2>&1; then
+            print_status "Installing Python3..."
+            sudo yum install -y python3 python3-pip
         fi
     elif command -v brew > /dev/null 2>&1; then
         # macOS
@@ -83,7 +141,14 @@ install_dependencies() {
             print_status "Installing curl..."
             brew install curl
         fi
+        if ! command -v python3 > /dev/null 2>&1; then
+            print_status "Installing Python3..."
+            brew install python3
+        fi
     fi
+    
+    # Install Poetry
+    install_poetry
     
     # Install Docker if not present
     if ! command -v docker > /dev/null 2>&1; then
@@ -493,6 +558,9 @@ main() {
     check_docker
     check_docker_compose
     check_environment
+    
+    # Install Python dependencies with Poetry (async)
+    install_python_dependencies
     
     # Detect installation type for intelligent handling
     detect_installation_type

@@ -18,24 +18,75 @@ except ImportError as e:
     GOOGLE_ADK_AVAILABLE = False
     print(f"⚠️ Google ADK not available: {e}")
 
+# Try to import ADK tool-related modules
+try:
+    from google.adk.tools import FunctionTool
+    ADK_TOOLS_AVAILABLE = True
+    print("✅ ADK FunctionTool available")
+except ImportError:
+    ADK_TOOLS_AVAILABLE = False
+    print("⚠️ ADK Tools not available - will use alternative tool integration")
+
+# Google Generative AI imports - FALLBACK
+try:
+    import google.generativeai as genai
+    GOOGLE_GENAI_AVAILABLE = True
+    print("✅ Google Generative AI enabled")
+except ImportError as e:
+    GOOGLE_GENAI_AVAILABLE = False
+    print(f"⚠️ Google Generative AI not available: {e}")
+
 # Initialize FastAPI app
 app = FastAPI(title="BrandPulse Chat API", version="1.0.0")
 
 # Enable CORS for React frontend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# For development/exhibition: Allow all origins to prevent CORS issues
+# In production, restrict to specific origins for security
+import os
+cors_origins_env = os.getenv("CORS_ORIGINS", "")
+allow_all_origins = os.getenv("CORS_ALLOW_ALL", "true").lower() == "true"  # Default to True for dev/exhibition
+
+if cors_origins_env and not allow_all_origins:
+    # Use environment variable if set and not allowing all
+    cors_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+else:
+    # Default: Allow common development origins + all for exhibition
+    cors_origins = [
         "http://localhost:3000", 
         "http://localhost:3001", 
         "http://localhost:3002",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:3002",
         "http://frontend:80",
         "http://brandpulse-frontend:80",
-        "http://localhost:80"
-    ],  # React dev server and Docker containers
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+        "http://localhost:80",
+        "http://127.0.0.1:80",
+        "http://frontend",
+        "http://brandpulse-frontend",
+    ]
+
+# For exhibition: Allow all origins (use ["*"] in FastAPI)
+if allow_all_origins:
+    print("🌐 CORS: Allowing all origins for development/exhibition")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Allow all origins
+        allow_credentials=False,  # Must be False when using "*"
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+    )
+else:
+    print(f"🌐 CORS: Allowing specific origins: {cors_origins}")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+    )
 
 # Pydantic models for request/response
 class ChatMessage(BaseModel):
@@ -88,22 +139,74 @@ def get_agent():
         return brand_pulse_agent
     
     try:
-        if GOOGLE_ADK_AVAILABLE and auth_available:
-            print("🤖 Initializing Google ADK Agent...")
+        # Try Gemini direct first (more reliable)
+        if GOOGLE_GENAI_AVAILABLE and auth_available:
+            print("🤖 Initializing Google Generative AI (Gemini) directly...")
+            # Configure Gemini directly
+            if os.getenv("GOOGLE_API_KEY"):
+                genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+            else:
+                # Use service account credentials
+                genai.configure()
+            
+            # Create Gemini model
+            brand_pulse_agent = genai.GenerativeModel('gemini-2.0-flash-exp')
+            print("✅ BrandPulse Assistant (Gemini Direct) initialized successfully")
+            return brand_pulse_agent
+        elif GOOGLE_ADK_AVAILABLE and auth_available:
+            print("🤖 Initializing Google ADK Agent as fallback...")
             # Initialize the actual ADK agent
             brand_pulse_agent = Agent(
                 name="brandpulse_assistant",
-                description="BrandPulse Assistant for product analysis and sentiment monitoring"
+                description="BrandPulse Assistant for product analysis and sentiment monitoring. Can query product data from the database using tools."
             )
+            
+            # Add tools to the agent if available
+            try:
+                tools = create_adk_tools()
+                if tools:
+                    # ADK agent has a 'tools' attribute that is a list
+                    if hasattr(brand_pulse_agent, 'tools'):
+                        # Append tools to the existing tools list
+                        brand_pulse_agent.tools.extend(tools)
+                        print(f"✅ Added {len(tools)} tools to ADK agent (total: {len(brand_pulse_agent.tools)})")
+                    elif hasattr(brand_pulse_agent, 'add_tool'):
+                        # Try add_tool method if it exists
+                        for tool in tools:
+                            brand_pulse_agent.add_tool(tool)
+                        print(f"✅ Added {len(tools)} tools to ADK agent using add_tool method")
+                    else:
+                        print(f"⚠️ ADK agent doesn't support tools (no 'tools' attribute or 'add_tool' method)")
+                        print(f"   Agent attributes: {[attr for attr in dir(brand_pulse_agent) if 'tool' in attr.lower()]}")
+                else:
+                    print("⚠️ No tools created - ADK_TOOLS_AVAILABLE may be False")
+            except Exception as tool_error:
+                print(f"⚠️ Could not add tools to ADK agent: {tool_error}")
+                import traceback
+                print(traceback.format_exc())
+            
             print("✅ BrandPulse Assistant (ADK) initialized successfully")
             return brand_pulse_agent
         else:
-            print("🤖 Using mock agent (ADK not available or no auth)...")
+            print("🤖 Using mock agent (no AI services available or no auth)...")
             brand_pulse_agent = create_mock_agent()
             return brand_pulse_agent
         
     except Exception as error:
-        print(f"⚠️ Gemini initialization failed: {error}")
+        print(f"⚠️ AI initialization failed: {error}")
+        if GOOGLE_GENAI_AVAILABLE and auth_available:
+            try:
+                print("🔧 Trying Gemini fallback...")
+                if os.getenv("GOOGLE_API_KEY"):
+                    genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+                else:
+                    genai.configure()
+                brand_pulse_agent = genai.GenerativeModel('gemini-2.0-flash-exp')
+                print("✅ Gemini fallback successful")
+                return brand_pulse_agent
+            except Exception as gemini_error:
+                print(f"⚠️ Gemini fallback also failed: {gemini_error}")
+        
         print("🔧 Creating mock agent for development...")
         brand_pulse_agent = create_mock_agent()
         return brand_pulse_agent
@@ -439,6 +542,426 @@ class ProductLookupTool:
 # Initialize the product lookup tool
 product_tool = ProductLookupTool()
 
+# ADK Tool Functions - These will be registered with the ADK agent
+async def lookup_product_tool(product_name: str) -> str:
+    """
+    Lookup product information by name from the BrandPulse database.
+    
+    Args:
+        product_name: The name of the product to lookup (e.g., "iPhone 15 Pro")
+    
+    Returns:
+        A formatted string with product information including sentiment data
+    """
+    try:
+        result = await product_tool.lookup_product(product_name)
+        return product_tool.format_product_summary(result)
+    except Exception as e:
+        return f"Error looking up product: {str(e)}"
+
+async def search_products_tool(search_term: str) -> str:
+    """
+    Search for products using a search term. Searches across product names, brands, categories, and descriptions.
+    
+    Args:
+        search_term: The search term to find products (e.g., "iPhone", "Samsung", "Tesla")
+    
+    Returns:
+        A formatted string with matching products and their information
+    """
+    try:
+        result = await product_tool.search_products(search_term)
+        return product_tool.format_product_summary(result)
+    except Exception as e:
+        return f"Error searching products: {str(e)}"
+
+async def get_product_details_tool(product_id: int) -> str:
+    """
+    Get detailed information about a product by its ID.
+    
+    Args:
+        product_id: The numeric ID of the product (e.g., 1, 2, 3)
+    
+    Returns:
+        A formatted string with detailed product information including sentiment analysis
+    """
+    try:
+        result = await product_tool.get_product_details(product_id)
+        return product_tool.format_product_summary(result)
+    except Exception as e:
+        return f"Error getting product details: {str(e)}"
+
+# Tool handler function - processes function calls from ADK agent
+async def handle_tool_call(function_name: str, arguments: Dict) -> str:
+    """
+    Handle tool/function calls from the ADK agent.
+    
+    Args:
+        function_name: Name of the function to call
+        arguments: Dictionary of function arguments
+    
+    Returns:
+        String result from the tool execution
+    """
+    try:
+        print(f"🔧 Executing tool: {function_name} with arguments: {arguments}")
+        
+        if function_name == "lookup_product":
+            product_name = arguments.get("product_name")
+            if not product_name:
+                return "Error: product_name parameter is required"
+            result = await lookup_product_tool(product_name)
+            print(f"✅ Tool {function_name} executed successfully")
+            return result
+        
+        elif function_name == "search_products":
+            search_term = arguments.get("search_term")
+            if not search_term:
+                return "Error: search_term parameter is required"
+            result = await search_products_tool(search_term)
+            print(f"✅ Tool {function_name} executed successfully")
+            return result
+        
+        elif function_name == "get_product_details":
+            product_id = arguments.get("product_id")
+            if not product_id:
+                return "Error: product_id parameter is required"
+            result = await get_product_details_tool(int(product_id))
+            print(f"✅ Tool {function_name} executed successfully")
+            return result
+        
+        else:
+            return f"Error: Unknown function {function_name}"
+    
+    except Exception as e:
+        print(f"⚠️ Error executing tool {function_name}: {e}")
+        import traceback
+        print(traceback.format_exc())
+        return f"Error executing {function_name}: {str(e)}"
+
+# Process ADK response for function calls and execute them
+async def process_adk_response_with_tools(agent, message, max_iterations=3):
+    """
+    Process ADK agent response, handling function calls if present.
+    This implements a tool-calling loop where the agent can call tools and get results.
+    
+    Args:
+        agent: The ADK agent instance
+        message: The user message/prompt
+        max_iterations: Maximum number of tool-calling iterations
+    
+    Returns:
+        Final response string after processing all tool calls
+    """
+    conversation_history = []
+    current_message = message
+    
+    for iteration in range(max_iterations):
+        print(f"🔄 ADK Tool-calling iteration {iteration + 1}/{max_iterations}")
+        
+        try:
+            # Get response from agent
+            response_parts = []
+            async for chunk in agent.run_async(current_message):
+                chunk_text = extract_text_from_adk_response(chunk, f"iteration {iteration + 1}")
+                if chunk_text:
+                    response_parts.append(chunk_text)
+            
+            response_text = ''.join(response_parts)
+            
+            # Check if response contains function calls
+            # ADK typically returns function calls in a structured format
+            # We need to check the response for function call indicators
+            
+            # Try to detect function calls in the response
+            # This is a simplified approach - actual ADK may return structured function calls
+            if hasattr(agent, 'last_function_calls') or 'function_call' in str(response_text).lower():
+                print("🔧 Detected potential function call in response")
+                # Process function calls if detected
+                # Note: Actual implementation depends on ADK's function calling format
+                # This is a placeholder for the actual function call processing
+                pass
+            
+            # If we have a complete response without function calls, return it
+            if response_text and len(response_text.strip()) > 50:
+                print(f"✅ Got final response after {iteration + 1} iterations")
+                return response_text
+            
+            # Otherwise, continue to next iteration
+            current_message = response_text
+            
+        except Exception as e:
+            print(f"⚠️ Error in tool-calling iteration {iteration + 1}: {e}")
+            if iteration == 0:
+                # If first iteration fails, return error
+                return f"Error processing request: {str(e)}"
+            break
+    
+    # If we exhausted iterations, return the last response
+    return response_text if response_text else "Unable to generate response after tool-calling iterations"
+
+# Create wrapper functions for ADK tools (ADK FunctionTool requires sync functions)
+# We'll create sync wrappers that call the async functions using asyncio
+def lookup_product_sync(product_name: str) -> str:
+    """Sync wrapper for lookup_product_tool - ADK FunctionTool requires sync functions"""
+    import asyncio
+    import nest_asyncio
+    
+    # Allow nested event loops if needed
+    try:
+        nest_asyncio.apply()
+    except:
+        pass
+    
+    try:
+        # Try to get the running event loop
+        try:
+            loop = asyncio.get_running_loop()
+            # If we're in an async context, we need to use a different approach
+            # Use a thread to run the async function
+            import concurrent.futures
+            import threading
+            
+            result = None
+            exception = None
+            
+            def run_in_thread():
+                nonlocal result, exception
+                try:
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+                    result = new_loop.run_until_complete(lookup_product_tool(product_name))
+                    new_loop.close()
+                except Exception as e:
+                    exception = e
+            
+            thread = threading.Thread(target=run_in_thread)
+            thread.start()
+            thread.join(timeout=10)
+            
+            if exception:
+                raise exception
+            return result if result else "Error: Tool execution timed out"
+        except RuntimeError:
+            # No running loop, create one
+            return asyncio.run(lookup_product_tool(product_name))
+    except Exception as e:
+        return f"Error executing lookup_product: {str(e)}"
+
+def search_products_sync(search_term: str) -> str:
+    """Sync wrapper for search_products_tool"""
+    import asyncio
+    import threading
+    
+    try:
+        try:
+            loop = asyncio.get_running_loop()
+            result = None
+            exception = None
+            
+            def run_in_thread():
+                nonlocal result, exception
+                try:
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+                    result = new_loop.run_until_complete(search_products_tool(search_term))
+                    new_loop.close()
+                except Exception as e:
+                    exception = e
+            
+            thread = threading.Thread(target=run_in_thread)
+            thread.start()
+            thread.join(timeout=10)
+            
+            if exception:
+                raise exception
+            return result if result else "Error: Tool execution timed out"
+        except RuntimeError:
+            return asyncio.run(search_products_tool(search_term))
+    except Exception as e:
+        return f"Error executing search_products: {str(e)}"
+
+def get_product_details_sync(product_id: int) -> str:
+    """Sync wrapper for get_product_details_tool"""
+    import asyncio
+    import threading
+    
+    try:
+        try:
+            loop = asyncio.get_running_loop()
+            result = None
+            exception = None
+            
+            def run_in_thread():
+                nonlocal result, exception
+                try:
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+                    result = new_loop.run_until_complete(get_product_details_tool(product_id))
+                    new_loop.close()
+                except Exception as e:
+                    exception = e
+            
+            thread = threading.Thread(target=run_in_thread)
+            thread.start()
+            thread.join(timeout=10)
+            
+            if exception:
+                raise exception
+            return result if result else "Error: Tool execution timed out"
+        except RuntimeError:
+            return asyncio.run(get_product_details_tool(product_id))
+    except Exception as e:
+        return f"Error executing get_product_details: {str(e)}"
+
+# Create ADK-compatible tool definitions
+def create_adk_tools():
+    """Create ADK tool definitions for function calling using FunctionTool"""
+    tools = []
+    
+    if ADK_TOOLS_AVAILABLE:
+        try:
+            from google.adk.tools import FunctionTool
+            
+            # Tool 1: Lookup Product
+            lookup_tool = FunctionTool(func=lookup_product_sync)
+            tools.append(lookup_tool)
+            print("✅ Created lookup_product tool")
+            
+            # Tool 2: Search Products
+            search_tool = FunctionTool(func=search_products_sync)
+            tools.append(search_tool)
+            print("✅ Created search_products tool")
+            
+            # Tool 3: Get Product Details by ID
+            details_tool = FunctionTool(func=get_product_details_sync)
+            tools.append(details_tool)
+            print("✅ Created get_product_details tool")
+            
+            print(f"✅ Created {len(tools)} ADK tool definitions")
+            return tools
+            
+        except Exception as e:
+            print(f"⚠️ Error creating ADK tools: {e}")
+            import traceback
+            print(traceback.format_exc())
+            return []
+    else:
+        print("⚠️ ADK Tools not available, using alternative integration")
+        return []
+
+# Robust ADK response extraction helper function
+# This function is designed for exhibition/demo reliability - it handles ALL possible
+# ADK response formats to ensure responses always reach the chat endpoint.
+# Based on analysis of Gemini API patterns and ADK best practices.
+def extract_text_from_adk_response(response_obj, context="ADK response"):
+    """
+    Foolproof function to extract text from ADK response objects.
+    Handles all possible response formats to ensure reliability.
+    
+    This function tries multiple extraction strategies in order:
+    1. Direct string check
+    2. Common attributes (text, content, message, response, output)
+    3. Parts structure (like Gemini responses)
+    4. Dictionary inspection (__dict__)
+    5. Iterable handling (for collections)
+    6. String conversion (last resort)
+    
+    Args:
+        response_obj: The response object from ADK (can be chunk, full response, or any format)
+        context: Context string for logging
+        
+    Returns:
+        str: Extracted text, or empty string if extraction fails
+        
+    Note: This is critical for exhibition reliability - it ensures responses
+    are always extracted regardless of ADK version or response format changes.
+    """
+    if response_obj is None:
+        print(f"⚠️ {context}: Response object is None")
+        return ""
+    
+    # Try direct string
+    if isinstance(response_obj, str):
+        return response_obj
+    
+    # Try common attributes (text, content, message)
+    for attr in ['text', 'content', 'message', 'response', 'output']:
+        if hasattr(response_obj, attr):
+            try:
+                value = getattr(response_obj, attr)
+                if value:
+                    if isinstance(value, str):
+                        return value
+                    elif hasattr(value, 'text'):
+                        return value.text
+                    else:
+                        return str(value)
+            except Exception as e:
+                print(f"⚠️ {context}: Error accessing {attr}: {e}")
+                continue
+    
+    # Try parts (like Gemini responses)
+    if hasattr(response_obj, 'parts'):
+        try:
+            parts_text = []
+            for part in response_obj.parts:
+                if hasattr(part, 'text'):
+                    parts_text.append(part.text)
+                elif hasattr(part, 'content'):
+                    parts_text.append(str(part.content))
+                elif isinstance(part, str):
+                    parts_text.append(part)
+                else:
+                    parts_text.append(str(part))
+            if parts_text:
+                return ''.join(parts_text)
+        except Exception as e:
+            print(f"⚠️ {context}: Error processing parts: {e}")
+    
+    # Try __dict__ inspection
+    if hasattr(response_obj, '__dict__'):
+        try:
+            obj_dict = response_obj.__dict__
+            # Check common keys
+            for key in ['text', 'content', 'message', 'response', 'output', 'data']:
+                if key in obj_dict:
+                    value = obj_dict[key]
+                    if value:
+                        if isinstance(value, str):
+                            return value
+                        elif hasattr(value, 'text'):
+                            return value.text
+                        else:
+                            return str(value)
+        except Exception as e:
+            print(f"⚠️ {context}: Error inspecting __dict__: {e}")
+    
+    # Try iterating if it's iterable (but not a string)
+    if hasattr(response_obj, '__iter__') and not isinstance(response_obj, str):
+        try:
+            parts = []
+            for item in response_obj:
+                item_text = extract_text_from_adk_response(item, f"{context} item")
+                if item_text:
+                    parts.append(item_text)
+            if parts:
+                return ''.join(parts)
+        except Exception as e:
+            print(f"⚠️ {context}: Error iterating response: {e}")
+    
+    # Last resort: convert to string
+    try:
+        result = str(response_obj)
+        # Only return if it's not just the object representation
+        if result and not result.startswith('<') and len(result) > 10:
+            return result
+    except Exception as e:
+        print(f"⚠️ {context}: Error converting to string: {e}")
+    
+    print(f"⚠️ {context}: Could not extract text from response object of type {type(response_obj)}")
+    return ""
+
 @app.get("/")
 async def root():
     return {"message": "BrandPulse Chat API with Google ADK", "status": "running"}
@@ -483,10 +1006,14 @@ async def simple_endpoint():
 @app.get("/debug")
 async def debug_info():
     """Debug endpoint to help with frontend troubleshooting"""
+    cors_allow_all = os.getenv("CORS_ALLOW_ALL", "true").lower() == "true"
+    cors_origins_env = os.getenv("CORS_ORIGINS", "")
+    
     return {
         "server_time": datetime.now().isoformat(),
         "cors_enabled": True,
-        "allowed_origins": ["http://localhost:3000"],
+        "cors_allow_all": cors_allow_all,
+        "allowed_origins": ["*"] if cors_allow_all else (cors_origins_env.split(",") if cors_origins_env else ["http://localhost:3000"]),
         "agent_status": "available" if brand_pulse_agent is not None else "unavailable",
         "endpoints": {
             "health": "/health",
@@ -494,8 +1021,19 @@ async def debug_info():
             "product_analysis": "/api/analyze/product",
             "chat_history": "/api/chat/history"
         },
-        "message": "Backend is running and ready for frontend connections!"
+        "message": "Backend is running and ready for frontend connections!",
+        "cors_config": {
+            "allow_all": cors_allow_all,
+            "credentials": not cors_allow_all,
+            "methods": ["*"],
+            "headers": ["*"]
+        }
     }
+
+@app.options("/{full_path:path}")
+async def options_handler(full_path: str):
+    """Handle OPTIONS requests for CORS preflight"""
+    return {"message": "OK"}
 
 # Product lookup API endpoints
 @app.get("/api/products/lookup/{product_name}")
@@ -639,15 +1177,19 @@ async def chat_with_agent(message: ChatMessage):
         # Prepare the user message with additional context if provided
         user_input = message.text
         
-        # Extract product information from the user message
+        # ALWAYS check database for product information before making decisions
+        # This ensures the agent has real data to work with
         product_context = ""
         product_data = None
+        db_queried = False
         
-        # Check if user is asking about a specific product
+        # Strategy 1: Check if user provided explicit product name
         if message.product_name:
+            print(f"🔍 Querying database for product: {message.product_name}")
             product_data = await lookup_product_by_name(message.product_name)
+            db_queried = True
             if product_data.get("found"):
-                product_context = f"\n\n## Product Database Information:\n"
+                product_context = f"\n\n## Product Database Information (Queried from DB):\n"
                 for product in product_data["products"][:1]:  # Use first match
                     product_context += f"- **Product**: {product['name']}\n"
                     product_context += f"- **Brand**: {product['brand']}\n"
@@ -659,31 +1201,71 @@ async def chat_with_agent(message: ChatMessage):
                     product_context += f"- **Positive**: {product['positive_mentions']}, **Negative**: {product['negative_mentions']}, **Neutral**: {product['neutral_mentions']}\n"
                 
                 # Add recent sentiment data
-                if product_data["sentiment_data"]:
+                if product_data.get("sentiment_data"):
                     product_context += f"\n### Recent Customer Feedback:\n"
                     for sentiment in product_data["sentiment_data"][:3]:
                         product_context += f"- **{sentiment['sentiment'].title()}** ({sentiment['score']:.2f}): {sentiment['text'][:100]}...\n"
                         if sentiment.get('platform'):
                             product_context += f"  - Source: {sentiment['platform']}\n"
+                print(f"✅ Found product data in database")
+            else:
+                print(f"⚠️ Product '{message.product_name}' not found in database")
         
-        # Also try to extract product names from the message text itself
-        elif any(keyword in user_input.lower() for keyword in ['iphone', 'samsung', 'tesla', 'nike', 'macbook', 'galaxy']):
-            # Try to find products mentioned in the text
-            for keyword in ['iphone', 'samsung', 'tesla', 'nike', 'macbook', 'galaxy']:
-                if keyword in user_input.lower():
+        # Strategy 2: Extract product names from user message and query database
+        # This is more proactive - we check the DB even if product name wasn't explicitly provided
+        if not db_queried:
+            # Common product keywords to detect
+            product_keywords = [
+                'iphone', 'samsung', 'tesla', 'nike', 'macbook', 'galaxy',
+                'model y', 'model 3', 'airpods', 'ipad', 'watch',
+                'sony', 'lg', 'dell', 'hp', 'lenovo', 'asus'
+            ]
+            
+            user_lower = user_input.lower()
+            detected_keywords = [kw for kw in product_keywords if kw in user_lower]
+            
+            if detected_keywords:
+                print(f"🔍 Detected product keywords in message: {detected_keywords}")
+                # Try to find products for each detected keyword
+                for keyword in detected_keywords:
+                    print(f"🔍 Querying database for: {keyword}")
                     search_result = await search_products_comprehensive(keyword)
                     if search_result.get("found"):
                         product_data = search_result
-                        product_context += f"\n\n## Related Products Found:\n"
-                        for product in search_result["products"][:2]:
-                            product_context += f"- **{product['name']}** ({product['brand']}) - ${product['price']}\n"
-                            product_context += f"  - Sentiment: {product['avg_sentiment_score']:.2f} ({product['total_mentions']} mentions)\n"
+                        db_queried = True
+                        product_context += f"\n\n## Product Database Information (Queried from DB):\n"
+                        product_context += f"**Note**: Found products matching '{keyword}' in database:\n\n"
+                        for product in search_result["products"][:3]:  # Show up to 3 matches
+                            product_context += f"### {product['name']} ({product['brand']})\n"
+                            product_context += f"- **Price**: ${product['price']}\n"
+                            product_context += f"- **Category**: {product['category']}\n"
+                            product_context += f"- **Sentiment Score**: {product['avg_sentiment_score']:.2f}\n"
+                            product_context += f"- **Mentions**: {product['total_mentions']} total ({product['positive_mentions']} positive, {product['negative_mentions']} negative)\n\n"
+                        print(f"✅ Found {len(search_result['products'])} product(s) in database")
                         break
+        
+        # Strategy 3: If no products found but user seems to be asking about products,
+        # still inform the agent to use tools
+        if not db_queried and any(word in user_input.lower() for word in ['product', 'sentiment', 'review', 'feedback', 'mention']):
+            print("🔍 User query seems product-related but no products detected - agent will use tools if needed")
+            product_context += "\n\n**Note**: If you need specific product data, use the lookup_product or search_products tools to query the database."
         
         if message.context:
             user_input = f"{user_input}\nAdditional Context: {message.context}"
         
         # Create a comprehensive prompt for brand analysis with product data
+        # Include instructions about available tools
+        tools_instruction = """
+## Available Tools:
+You have access to the following tools to query product data from the BrandPulse database:
+1. **lookup_product(product_name)**: Lookup detailed information about a specific product by name
+2. **search_products(search_term)**: Search for products using keywords (brand, category, etc.)
+3. **get_product_details(product_id)**: Get detailed information about a product by its ID
+
+**IMPORTANT**: When users ask about products, USE THESE TOOLS to get real data from the database.
+Don't make up product information - always query the database first using the appropriate tool.
+"""
+        
         full_prompt = f"""You are BrandPulse Assistant, an expert AI agent specialized in analyzing products and their public perception.
 
 ## Response Format Requirements:
@@ -701,6 +1283,7 @@ async def chat_with_agent(message: ChatMessage):
 - Offer **concrete recommendations** for improvement
 - Be **honest about limitations** and data sources
 - **Use the actual product data** from the database when available
+- **ALWAYS use tools to query product data** when users ask about specific products
 
 ## Markdown Formatting Rules:
 - Use `##` for main sections
@@ -710,50 +1293,425 @@ async def chat_with_agent(message: ChatMessage):
 - Use numbered lists (`1.`) for recommendations
 - Keep paragraphs short (2-3 sentences max)
 
+{tools_instruction}
+
 User question: {user_input}{product_context}"""
 
+        # Debug: Log agent type and methods
+        print(f"🔍 Agent type: {type(agent)}")
+        print(f"🔍 Agent has generate_content: {hasattr(agent, 'generate_content')}")
+        print(f"🔍 Agent has run_async: {hasattr(agent, 'run_async')}")
+        
+        # Check if this is a Gemini model (direct API) or ADK agent
+        if hasattr(agent, 'generate_content'):
+            # This is a Gemini model - use generate_content
+            try:
+                print("🔄 Using Gemini generate_content method...")
+                response_obj = agent.generate_content(full_prompt)
+                if hasattr(response_obj, 'text'):
+                    response = response_obj.text
+                elif hasattr(response_obj, 'parts'):
+                    # Handle response with parts
+                    response = ''.join([part.text for part in response_obj.parts if hasattr(part, 'text')])
+                else:
+                    response = str(response_obj)
+                
+                # Check if response contains tool call indicators and execute them
+                import re
+                tool_results = []
+                
+                print(f"🔍 Checking response for tool calls (response length: {len(response)})")
+                print(f"🔍 Response preview: {response[:200]}...")
+                
+                # First, try to find tool calls in code blocks (handles both single and double quotes)
+                # More flexible pattern that matches any code block with tool calls
+                code_block_pattern = r'```[^\n]*\n\s*(lookup_product|search_products|get_product_details)\s*\(([^)]+)\)'
+                code_matches = list(re.finditer(code_block_pattern, response, re.IGNORECASE | re.MULTILINE | re.DOTALL))
+                print(f"🔍 Found {len(code_matches)} code block matches")
+                
+                for match in code_matches:
+                    func_name = match.group(1).lower()
+                    args_str = match.group(2).strip()
+                    print(f"🔧 Detected tool call in code block: {func_name}({args_str})")
+                    
+                    # Parse arguments - handle both single and double quotes
+                    func_args = {}
+                    if func_name == 'lookup_product':
+                        # Try product_name="value" or product_name='value' first
+                        name_match = re.search(r'product_name\s*=\s*["\']([^"\']+)["\']', args_str, re.IGNORECASE)
+                        if not name_match:
+                            # Try just "value" or 'value'
+                            name_match = re.search(r'["\']([^"\']+)["\']', args_str)
+                        if name_match:
+                            func_args['product_name'] = name_match.group(1).strip()
+                    elif func_name == 'search_products':
+                        term_match = re.search(r'search_term\s*=\s*["\']([^"\']+)["\']', args_str, re.IGNORECASE)
+                        if not term_match:
+                            term_match = re.search(r'["\']([^"\']+)["\']', args_str)
+                        if term_match:
+                            func_args['search_term'] = term_match.group(1).strip()
+                    elif func_name == 'get_product_details':
+                        id_match = re.search(r'product_id\s*=\s*(\d+)', args_str, re.IGNORECASE)
+                        if not id_match:
+                            id_match = re.search(r'(\d+)', args_str)
+                        if id_match:
+                            func_args['product_id'] = int(id_match.group(1))
+                    
+                    if func_args:
+                        print(f"🔧 Executing tool: {func_name} with args: {func_args}")
+                        try:
+                            result = await handle_tool_call(func_name, func_args)
+                            tool_results.append(f"**Tool Result from {func_name}:**\n{result}")
+                            print(f"✅ Tool {func_name} executed successfully")
+                        except Exception as tool_error:
+                            print(f"⚠️ Error executing tool {func_name}: {tool_error}")
+                            import traceback
+                            print(traceback.format_exc())
+                            tool_results.append(f"**Error executing {func_name}:** {str(tool_error)}")
+                
+                # Also check for inline tool calls (without code blocks)
+                if not tool_results:
+                    inline_pattern = r'(lookup_product|search_products|get_product_details)\s*\(([^)]+)\)'
+                    inline_matches = re.finditer(inline_pattern, response, re.IGNORECASE)
+                    
+                    for match in inline_matches:
+                        func_name = match.group(1).lower()
+                        args_str = match.group(2).strip()
+                        print(f"🔧 Detected inline tool call: {func_name}({args_str})")
+                        
+                        # Parse arguments (same logic as above)
+                        func_args = {}
+                        if func_name == 'lookup_product':
+                            name_match = re.search(r'product_name\s*=\s*["\']([^"\']+)["\']', args_str, re.IGNORECASE)
+                            if not name_match:
+                                name_match = re.search(r'["\']([^"\']+)["\']', args_str)
+                            if name_match:
+                                func_args['product_name'] = name_match.group(1).strip()
+                        elif func_name == 'search_products':
+                            term_match = re.search(r'search_term\s*=\s*["\']([^"\']+)["\']', args_str, re.IGNORECASE)
+                            if not term_match:
+                                term_match = re.search(r'["\']([^"\']+)["\']', args_str)
+                            if term_match:
+                                func_args['search_term'] = term_match.group(1).strip()
+                        elif func_name == 'get_product_details':
+                            id_match = re.search(r'product_id\s*=\s*(\d+)', args_str, re.IGNORECASE)
+                            if not id_match:
+                                id_match = re.search(r'(\d+)', args_str)
+                            if id_match:
+                                func_args['product_id'] = int(id_match.group(1))
+                        
+                        if func_args:
+                            print(f"🔧 Executing tool: {func_name} with args: {func_args}")
+                            try:
+                                result = await handle_tool_call(func_name, func_args)
+                                tool_results.append(f"**Tool Result from {func_name}:**\n{result}")
+                                print(f"✅ Tool {func_name} executed successfully")
+                            except Exception as tool_error:
+                                print(f"⚠️ Error executing tool {func_name}: {tool_error}")
+                                import traceback
+                                print(traceback.format_exc())
+                                tool_results.append(f"**Error executing {func_name}:** {str(tool_error)}")
+                            break  # Only execute first tool call found
+                
+                # If tools were executed, get a final response with the tool results
+                if tool_results:
+                    print(f"✅ Executed {len(tool_results)} tool(s), getting final response with results")
+                    tool_results_text = "\n\n".join(tool_results)
+                    follow_up_prompt = f"""Based on the tool results below, provide a comprehensive analysis of the product(s).
+
+{tool_results_text}
+
+Original user question: {user_input}
+
+Provide a detailed analysis with:
+- Overview
+- Key Strengths  
+- Key Weaknesses
+- Competitive Position
+- Recommendations
+
+Use the actual data from the tool results above."""
+                    
+                    try:
+                        final_response_obj = agent.generate_content(follow_up_prompt)
+                        if hasattr(final_response_obj, 'text'):
+                            response = final_response_obj.text
+                        elif hasattr(final_response_obj, 'parts'):
+                            response = ''.join([part.text for part in final_response_obj.parts if hasattr(part, 'text')])
+                        else:
+                            response = str(final_response_obj)
+                        print("✅ Final response with tool results generated successfully")
+                    except Exception as follow_up_error:
+                        print(f"⚠️ Error generating follow-up response: {follow_up_error}")
+                        # Use original response with tool results appended
+                        response = f"{response}\n\n## Tool Results:\n{tool_results_text}"
+                
+                print("✅ Gemini response generated successfully")
+                
+            except Exception as gemini_error:
+                print(f"⚠️ Gemini API error: {gemini_error}")
+                import traceback
+                print(f"⚠️ Traceback: {traceback.format_exc()}")
+                response = None
+                
         # Use the ADK agent - try different methods based on availability
-        if hasattr(agent, 'run'):
+        elif hasattr(agent, 'run_async'):
+            try:
+                print("🔄 Using ADK run_async method...")
+                
+                # Try different message formats for ADK
+                try:
+                    # Try to import and use proper ADK message types
+                    from google.adk import Message
+                    message_formats = [
+                        Message(content=full_prompt),  # Proper ADK Message
+                        full_prompt,  # Plain string
+                        {"content": full_prompt},  # Dict format
+                        {"text": full_prompt},  # Alternative dict format
+                    ]
+                except ImportError:
+                    # Fallback if Message class not available
+                    message_formats = [
+                        full_prompt,  # Plain string
+                        {"content": full_prompt},  # Dict format
+                        {"text": full_prompt},  # Alternative dict format
+                        {"role": "user", "content": full_prompt},  # Chat format
+                    ]
+                
+                response_parts = []
+                success = False
+                chunk_count = 0
+                
+                for msg_format in message_formats:
+                    try:
+                        print(f"🔄 Trying message format: {type(msg_format)}")
+                        
+                        # Add timeout to prevent hanging (30 seconds)
+                        try:
+                            async def collect_chunks():
+                                nonlocal chunk_count, response_parts
+                                function_calls_detected = []
+                                
+                                try:
+                                    async for chunk in agent.run_async(msg_format):
+                                        chunk_count += 1
+                                        print(f"📦 Received chunk #{chunk_count}, type: {type(chunk)}")
+                                        
+                                        # Check for function calls in the chunk
+                                        # ADK may return function calls in different formats
+                                        function_call = None
+                                        
+                                        # Check if chunk has function_call attribute
+                                        if hasattr(chunk, 'function_call'):
+                                            function_call = chunk.function_call
+                                        elif hasattr(chunk, 'function_calls'):
+                                            function_calls_detected.extend(chunk.function_calls)
+                                        elif hasattr(chunk, 'tool_calls'):
+                                            function_calls_detected.extend(chunk.tool_calls)
+                                        elif isinstance(chunk, dict):
+                                            if 'function_call' in chunk:
+                                                function_call = chunk['function_call']
+                                            elif 'function_calls' in chunk:
+                                                function_calls_detected.extend(chunk['function_calls'])
+                                            elif 'tool_calls' in chunk:
+                                                function_calls_detected.extend(chunk['tool_calls'])
+                                        
+                                        if function_call:
+                                            function_calls_detected.append(function_call)
+                                        
+                                        # Use robust extraction helper
+                                        chunk_text = extract_text_from_adk_response(chunk, f"chunk #{chunk_count}")
+                                        
+                                        if chunk_text:
+                                            response_parts.append(chunk_text)
+                                            print(f"✅ Extracted {len(chunk_text)} chars from chunk #{chunk_count}")
+                                        else:
+                                            print(f"⚠️ Could not extract text from chunk #{chunk_count} of type {type(chunk)}")
+                                
+                                except TypeError as te:
+                                    # If it's not an async generator, try awaiting it as a coroutine
+                                    if "object is not async iterable" in str(te) or "not iterable" in str(te):
+                                        print("🔄 run_async returned a coroutine instead of async generator, awaiting...")
+                                        response_obj = await agent.run_async(msg_format)
+                                        print(f"📦 Received response object, type: {type(response_obj)}")
+                                        
+                                        # Use robust extraction helper
+                                        response_text = extract_text_from_adk_response(response_obj, "coroutine response")
+                                        
+                                        if response_text:
+                                            response_parts.append(response_text)
+                                            chunk_count = 1  # Mark as successful
+                                            print(f"✅ Extracted {len(response_text)} chars from coroutine response")
+                                        else:
+                                            print(f"⚠️ Could not extract text from coroutine response")
+                                    else:
+                                        raise
+                                
+                                # Process function calls if detected (after collecting all chunks)
+                                if function_calls_detected:
+                                    print(f"🔧 Detected {len(function_calls_detected)} function call(s)")
+                                    tool_results = []
+                                    for func_call in function_calls_detected:
+                                        try:
+                                            # Extract function name and arguments
+                                            if isinstance(func_call, dict):
+                                                func_name = func_call.get('name') or func_call.get('function_name')
+                                                func_args = func_call.get('arguments') or func_call.get('args', {})
+                                            elif hasattr(func_call, 'name'):
+                                                func_name = func_call.name
+                                                func_args = func_call.arguments if hasattr(func_call, 'arguments') else {}
+                                            else:
+                                                print(f"⚠️ Unknown function call format: {type(func_call)}")
+                                                continue
+                                            
+                                            if func_name:
+                                                print(f"🔧 Executing function: {func_name} with args: {func_args}")
+                                                result = await handle_tool_call(func_name, func_args)
+                                                tool_results.append(f"Tool result from {func_name}: {result}")
+                                        except Exception as tool_error:
+                                            print(f"⚠️ Error processing function call: {tool_error}")
+                                            import traceback
+                                            print(traceback.format_exc())
+                                    
+                                    # Add tool results to response parts
+                                    if tool_results:
+                                        response_parts.append("\n\n## Database Query Results:\n" + "\n".join(tool_results))
+                                        print(f"✅ Added {len(tool_results)} tool result(s) to response")
+                            
+                            # Run with timeout
+                            await asyncio.wait_for(collect_chunks(), timeout=30.0)
+                            
+                        except asyncio.TimeoutError:
+                            print(f"⚠️ ADK run_async timed out after 30 seconds for format {type(msg_format)}")
+                            if response_parts:
+                                # Use what we have so far
+                                success = True
+                                break
+                            continue
+                        except TypeError as te:
+                            # If it's not an async generator, try awaiting it as a coroutine
+                            if "object is not async iterable" in str(te) or "not iterable" in str(te):
+                                print("🔄 run_async returned a coroutine instead of async generator, awaiting...")
+                                try:
+                                    response_obj = await asyncio.wait_for(agent.run_async(msg_format), timeout=30.0)
+                                    print(f"📦 Received response object, type: {type(response_obj)}")
+                                    
+                                    # Use robust extraction helper
+                                    response_text = extract_text_from_adk_response(response_obj, "coroutine response")
+                                    
+                                    if response_text:
+                                        response_parts.append(response_text)
+                                        chunk_count = 1  # Mark as successful
+                                        print(f"✅ Extracted {len(response_text)} chars from coroutine response")
+                                    else:
+                                        print(f"⚠️ Could not extract text from coroutine response")
+                                except asyncio.TimeoutError:
+                                    print(f"⚠️ ADK coroutine timed out after 30 seconds")
+                                    continue
+                            else:
+                                raise
+                        
+                        if chunk_count > 0:
+                            success = True
+                            break
+                        else:
+                            print(f"⚠️ No chunks received for format {type(msg_format)}")
+                            
+                    except Exception as format_error:
+                        print(f"⚠️ Message format {type(msg_format)} failed: {format_error}")
+                        import traceback
+                        print(f"⚠️ Traceback: {traceback.format_exc()}")
+                        response_parts = []
+                        chunk_count = 0
+                        continue
+                
+                if success and response_parts:
+                    response = ''.join(response_parts)
+                    # Validate response is not empty and has reasonable length
+                    if len(response.strip()) > 0:
+                        print(f"✅ ADK async response generated successfully ({len(response_parts)} chunks, {len(response)} chars)")
+                    else:
+                        print("⚠️ ADK async response is empty after joining")
+                        response = None
+                elif success:
+                    print("⚠️ ADK async succeeded but no response parts collected")
+                    response = None
+                else:
+                    print("⚠️ ADK async failed for all message formats")
+                    response = None
+                
+            except Exception as adk_error:
+                print(f"⚠️ ADK async error: {adk_error}")
+                import traceback
+                print(f"⚠️ Traceback: {traceback.format_exc()}")
+                response = None
+        elif hasattr(agent, 'run_live'):
+            try:
+                print("🔄 Using ADK run_live method...")
+                # run_live might be for interactive sessions, try it anyway
+                response_obj = agent.run_live(full_prompt)
+                response = extract_text_from_adk_response(response_obj, "run_live response")
+                
+                if response:
+                    print(f"✅ ADK live response generated successfully ({len(response)} chars)")
+                else:
+                    print("⚠️ ADK live response was empty")
+                    response = None
+                
+            except Exception as live_error:
+                print(f"⚠️ ADK live error: {live_error}")
+                import traceback
+                print(f"⚠️ Traceback: {traceback.format_exc()}")
+                response = None
+        elif hasattr(agent, 'run'):
             try:
                 # Try synchronous run method first (more reliable)
                 print("🔄 Using ADK synchronous run method...")
                 response_obj = agent.run(full_prompt)
                 
-                # Handle different response types
-                if hasattr(response_obj, 'text'):
-                    response = response_obj.text
-                elif hasattr(response_obj, 'content'):
-                    response = response_obj.content
-                elif isinstance(response_obj, str):
-                    response = response_obj
+                # Use robust extraction helper
+                response = extract_text_from_adk_response(response_obj, "run response")
+                
+                if response:
+                    print(f"✅ ADK response generated successfully ({len(response)} chars)")
                 else:
-                    response = str(response_obj)
-                    
-                print("✅ ADK response generated successfully")
+                    print("⚠️ ADK run response was empty")
+                    response = None
                 
             except Exception as adk_error:
                 print(f"⚠️ ADK sync error: {adk_error}")
+                import traceback
+                print(f"⚠️ Traceback: {traceback.format_exc()}")
                 # Try async method as fallback
                 try:
                     if hasattr(agent, 'run_async'):
                         print("🔄 Trying ADK async method as fallback...")
                         response_parts = []
+                        chunk_count = 0
                         async for chunk in agent.run_async(full_prompt):
-                            if hasattr(chunk, 'text'):
-                                response_parts.append(chunk.text)
-                            elif hasattr(chunk, 'content'):
-                                response_parts.append(chunk.content)
-                            else:
-                                response_parts.append(str(chunk))
+                            chunk_count += 1
+                            print(f"📦 Fallback: Received chunk #{chunk_count}, type: {type(chunk)}")
+                            
+                            # Use robust extraction helper
+                            chunk_text = extract_text_from_adk_response(chunk, f"fallback chunk #{chunk_count}")
+                            
+                            if chunk_text:
+                                response_parts.append(chunk_text)
                         
-                        response = ''.join(response_parts) if response_parts else "No response generated"
-                        print("✅ ADK async response generated successfully")
+                        if response_parts:
+                            response = ''.join(response_parts)
+                            print(f"✅ ADK async fallback successful ({len(response_parts)} chunks, {len(response)} chars)")
+                        else:
+                            print("⚠️ ADK async fallback produced no response parts")
+                            raise adk_error
                     else:
                         raise adk_error
                 except Exception as async_error:
                     print(f"⚠️ ADK async also failed: {async_error}")
+                    import traceback
+                    print(f"⚠️ Async fallback traceback: {traceback.format_exc()}")
                     # Fallback to mock response if both fail
-                response = f"""## 🤖 BrandPulse Assistant Response
+                    response = f"""## 🤖 BrandPulse Assistant Response
 
 **Status**: AI service temporarily unavailable
 **Issue**: {str(adk_error)}
@@ -786,22 +1744,55 @@ User question: {user_input}{product_context}"""
 
 ---
 *Note: This is a fallback response. AI service will be restored shortly.*"""
-        elif hasattr(agent, 'generate_content'):
-            try:
-                # Check if it's async or sync
-                import inspect
-                if inspect.iscoroutinefunction(agent.generate_content):
-                    response_obj = await asyncio.to_thread(agent.generate_content, full_prompt, request_options={"timeout": 30})
-                else:
-                    response_obj = agent.generate_content(full_prompt, request_options={"timeout": 30})
-                response = response_obj.text
-            except Exception as gen_error:
-                print(f"⚠️ Gemini API error: {gen_error}")
-                # Fallback to mock response if Gemini fails
-                response = f"""## 🤖 BrandPulse Assistant Response
+        else:
+            # Debug: Check what methods the agent has
+            print(f"🔍 Agent type: {type(agent)}")
+            agent_methods = [method for method in dir(agent) if not method.startswith('_')]
+            print(f"🔍 Agent methods: {agent_methods}")
+            
+            # Try alternative methods
+            if hasattr(agent, 'chat'):
+                try:
+                    print("🔄 Using chat method...")
+                    response_obj = agent.chat(full_prompt)
+                    if hasattr(response_obj, 'text'):
+                        response = response_obj.text
+                    elif hasattr(response_obj, 'content'):
+                        response = response_obj.content
+                    else:
+                        response = str(response_obj)
+                    print("✅ Chat method response successful")
+                except Exception as chat_error:
+                    print(f"⚠️ Chat method error: {chat_error}")
+                    response = "Agent chat method failed"
+            elif hasattr(agent, 'send_message'):
+                try:
+                    print("🔄 Using send_message method...")
+                    response_obj = agent.send_message(full_prompt)
+                    if hasattr(response_obj, 'text'):
+                        response = response_obj.text
+                    elif hasattr(response_obj, 'content'):
+                        response = response_obj.content
+                    else:
+                        response = str(response_obj)
+                    print("✅ Send message response successful")
+                except Exception as send_error:
+                    print(f"⚠️ Send message error: {send_error}")
+                    response = "Agent send_message method failed"
+            else:
+                # This should not happen if agent was properly initialized
+                print(f"⚠️ Agent doesn't match any expected type. Type: {type(agent)}")
+                print(f"⚠️ Available methods: {agent_methods}")
+                response = f"Agent not properly initialized. Available methods: {agent_methods}"
+        
+        # Final validation: Ensure response is never None or empty
+        # This is critical for exhibition/demo reliability
+        if response is None or (isinstance(response, str) and len(response.strip()) == 0):
+            print("⚠️ All agent methods failed or returned empty response, using fallback response")
+            response = f"""## 🤖 BrandPulse Assistant Response
 
 **Status**: AI service temporarily unavailable
-**Issue**: {str(gen_error)}
+**Issue**: Agent methods not responding properly
 
 ### 📊 Analysis Request:
 {user_input}
@@ -830,9 +1821,12 @@ User question: {user_input}{product_context}"""
 - Create sentiment-based response workflows
 
 ---
-*Note: This is a fallback response. AI service will be restored shortly.*"""
-        else:
-            response = "Agent not properly initialized"
+*Note: This is a fallback response. The AI service is being configured.*"""
+        
+        # Final safety check: Convert to string and ensure it's not empty
+        response = str(response).strip()
+        if len(response) == 0:
+            response = "I apologize, but I'm unable to generate a response at this time. Please try again."
         
         # Store in chat history (session_id could be added for multiple users)
         session_id = "default"  # In production, generate proper session IDs
@@ -846,6 +1840,8 @@ User question: {user_input}{product_context}"""
             "product_name": message.product_name
         })
         
+        # Final return with guaranteed non-empty response
+        print(f"✅ Returning response to client ({len(response)} chars)")
         return ChatResponse(
             response=response,
             timestamp=datetime.now().isoformat(),

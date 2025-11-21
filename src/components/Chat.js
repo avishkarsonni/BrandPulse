@@ -6,191 +6,129 @@ import {
   TextField,
   IconButton,
   Avatar,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
-  Divider,
-  Grid,
-  Button,
-  InputAdornment,
-  Tooltip,
-  Badge,
   Chip,
   CircularProgress,
   Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
 } from '@mui/material';
 import {
   Send as SendIcon,
-  AttachFile as AttachFileIcon,
-  EmojiEmotions as EmojiIcon,
-  Search as SearchIcon,
-  FilterList as FilterIcon,
   Chat as ChatIcon,
-  Settings as SettingsIcon,
-  SmartToy as SmartToyIcon,
-  Analytics as AnalyticsIcon,
-  Clear as ClearIcon,
-  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
-import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { apiService } from '../services/api';
-import { useProduct } from '../contexts/ProductContext';
 
 const Chat = () => {
-  const { selectedProduct, productData } = useProduct();
   const [messages, setMessages] = useState([
     {
       id: 1,
-      text: "## Welcome to BrandPulse Assistant! 🧠\n\nI'm your AI expert for analyzing products and their public perception. I can help you:\n\n- **Analyze brand sentiment** and market trends\n- **Compare competitive positioning** \n- **Identify strengths and weaknesses**\n- **Provide actionable recommendations**\n\n### What product would you like to discuss today?\n\n*Try asking about any product like iPhone 15, Tesla Model Y, or Samsung Galaxy S24!*",
+      text: "## Welcome to BrandPulse Assistant! 🧠\n\nI'm your AI assistant for analyzing products and their public perception.\n\n**What I can help you with:**\n- Analyze brand sentiment and market trends\n- Compare competitive positioning\n- Identify strengths and weaknesses\n- Provide actionable recommendations\n\n**Try asking:**\n- \"Analyze iPhone 15 Pro\"\n- \"What do people think about Tesla Model Y?\"\n- \"Compare Samsung Galaxy S24 with competitors\"",
       sender: 'ai',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      avatar: '🧠',
-      name: 'BrandPulse Assistant',
     },
   ]);
 
-  const [newMessage, setNewMessage] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [productName, setProductName] = useState('');
+  const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [showProductDialog, setShowProductDialog] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState('unknown');
+  const [connectionStatus, setConnectionStatus] = useState('checking');
   const messagesEndRef = useRef(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Check backend connection on mount
   useEffect(() => {
-    // Check backend connection on component mount
     checkConnection();
   }, []);
 
   const checkConnection = async () => {
     try {
-      await apiService.testConnection();
-      setConnectionStatus('connected');
+      const health = await apiService.testConnection();
+      setConnectionStatus(health?.status === 'healthy' ? 'connected' : 'disconnected');
     } catch (error) {
       setConnectionStatus('disconnected');
-      console.warn('Backend not available:', error);
     }
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
+    const messageText = inputMessage.trim();
+    if (!messageText || isLoading) return;
 
+    // Add user message immediately
     const userMessage = {
-      id: messages.length + 1,
-      text: newMessage,
+      id: Date.now(),
+      text: messageText,
       sender: 'user',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      avatar: '👤',
-      name: 'You',
     };
 
     setMessages(prev => [...prev, userMessage]);
-    const currentMessage = newMessage;
-    setNewMessage('');
+    setInputMessage('');
     setIsLoading(true);
     setError(null);
 
     try {
-      // Send message to Google ADK agent
-      const response = await apiService.sendChatMessage(
-        currentMessage, 
-        productName || null, 
-        `User is asking about product analysis and public perception.`
-      );
-      
+      // Call backend API
+      // Backend returns: { response: string, timestamp: string, agent_name: string }
+      const apiResponse = await apiService.sendChatMessage(messageText, null, null);
+
+      // Validate response
+      if (!apiResponse || !apiResponse.response) {
+        throw new Error('Invalid response from server');
+      }
+
+      // Create AI message from response
       const aiMessage = {
-        id: messages.length + 2,
-        text: response.response,
+        id: Date.now() + 1,
+        text: apiResponse.response,
         sender: 'ai',
-        timestamp: response.timestamp ? new Date(response.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        avatar: '🧠',
-        name: response.agent_name || 'BrandPulse Assistant',
+        timestamp: apiResponse.timestamp
+          ? new Date(apiResponse.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
       setMessages(prev => [...prev, aiMessage]);
       setConnectionStatus('connected');
     } catch (error) {
-      console.error('Error sending message:', error);
-      setConnectionStatus('disconnected');
+      console.error('Chat error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response,
+        request: error.request,
+        code: error.code,
+        stack: error.stack
+      });
       
-      // Fallback response when backend is not available
-      const fallbackMessage = {
-        id: messages.length + 2,
-        text: "I'm sorry, I'm currently unable to connect to the analysis engine. Please make sure the backend server is running. In the meantime, I can help you understand that BrandPulse analyzes product sentiment, tracks public perception trends, and provides actionable insights for brand management.",
+      // Don't set connection status to disconnected on chat errors
+      // The health check might still be working
+      
+      // Extract error message - handle different error formats
+      let errorMessage = 'Failed to get response';
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.status) {
+        errorMessage = `Server error: ${error.response.status}`;
+      }
+      
+      const errorResponse = {
+        id: Date.now() + 1,
+        text: `## ⚠️ Error\n\nI encountered an issue: **${errorMessage}**\n\nPlease try again.`,
         sender: 'ai',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        avatar: '⚠️',
-        name: 'BrandPulse Assistant (Offline)',
       };
-      
-      setMessages(prev => [...prev, fallbackMessage]);
-      setError('Unable to connect to the analysis engine. Please check if the backend server is running.');
+
+      setMessages(prev => [...prev, errorResponse]);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickAction = async (action) => {
-    let prompt = '';
-    switch (action) {
-      case 'Analyze Product':
-        if (!productName) {
-          setShowProductDialog(true);
-          return;
-        }
-        prompt = `Please provide a comprehensive analysis of the public perception for ${productName}. Include market sentiment, key strengths and weaknesses, competitive positioning, and recommendations.`;
-        break;
-      case 'Sentiment Trends':
-        prompt = productName 
-          ? `Show me the current sentiment trends for ${productName}. What are people saying about it recently?`
-          : 'What are the current sentiment analysis trends and patterns you can identify?';
-        break;
-      case 'Competitive Analysis':
-        prompt = productName
-          ? `How does ${productName} compare to its competitors in terms of public perception and market sentiment?`
-          : 'Can you help me understand competitive analysis for brand perception?';
-        break;
-      case 'Recommendations':
-        prompt = productName
-          ? `Based on current public perception, what recommendations do you have for improving ${productName}'s brand image?`
-          : 'What are some best practices for improving brand perception and public sentiment?';
-        break;
-      default:
-        prompt = action;
-    }
-    
-    setNewMessage(prompt);
-    setTimeout(() => handleSendMessage(), 100);
-  };
-
-  const handleClearChat = () => {
-    setMessages([
-      {
-        id: 1,
-        text: "## Welcome to BrandPulse Assistant! 🧠\n\nI'm your AI expert for analyzing products and their public perception. I can help you:\n\n- **Analyze brand sentiment** and market trends\n- **Compare competitive positioning** \n- **Identify strengths and weaknesses**\n- **Provide actionable recommendations**\n\n### What product would you like to discuss today?\n\n*Try asking about any product like iPhone 15, Tesla Model Y, or Samsung Galaxy S24!*",
-        sender: 'ai',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        avatar: '🧠',
-        name: 'BrandPulse Assistant',
-      },
-    ]);
-    setError(null);
   };
 
   const handleKeyPress = (event) => {
@@ -200,27 +138,10 @@ const Chat = () => {
     }
   };
 
-  const quickActions = [
-    { label: 'Analyze Product', icon: '📊', description: 'Get comprehensive product analysis' },
-    { label: 'Sentiment Trends', icon: '📈', description: 'Show current sentiment trends' },
-    { label: 'Competitive Analysis', icon: '🏆', description: 'Compare with competitors' },
-    { label: 'Recommendations', icon: '💡', description: 'Get improvement suggestions' },
-  ];
-
-  const recentConversations = [
-    { id: 1, title: 'Product Analysis: iPhone 15', preview: 'Comprehensive market sentiment analysis...', time: '2 min ago', unread: 0 },
-    { id: 2, title: 'Brand Perception Study', preview: 'Tesla vs competitors analysis...', time: '1 hour ago', unread: 0 },
-    { id: 3, title: 'Sentiment Trends Review', preview: 'Nike quarterly perception trends...', time: '3 hours ago', unread: 0 },
-  ];
-
-  const filteredMessages = messages.filter(message =>
-    message.text.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
       {/* Header */}
-      <Paper sx={{ p: 2, borderRadius: 0, borderBottom: 1, borderColor: 'divider' }}>
+      <Paper elevation={2} sx={{ p: 2, borderRadius: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Avatar sx={{ bgcolor: 'primary.main' }}>
@@ -229,406 +150,176 @@ const Chat = () => {
             <Box>
               <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 BrandPulse Assistant
-                <Chip 
-                  size="small" 
-                  label={connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'disconnected' ? 'Offline' : 'Checking...'}
-                  color={connectionStatus === 'connected' ? 'success' : connectionStatus === 'disconnected' ? 'error' : 'default'}
+                <Chip
+                  size="small"
+                  label={
+                    connectionStatus === 'connected' ? 'Connected' :
+                    connectionStatus === 'disconnected' ? 'Offline' :
+                    'Checking...'
+                  }
+                  color={connectionStatus === 'connected' ? 'success' : 'error'}
                   variant="outlined"
                 />
               </Typography>
               <Typography variant="caption" color="textSecondary">
-                Powered by Google ADK • Gemini 2.0 Flash • Product Analysis Expert
-                {selectedProduct && ` • Analyzing: ${selectedProduct.name}`}
+                Powered by Gemini 2.0 Flash
               </Typography>
             </Box>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Tooltip title="Search Messages">
-              <IconButton>
-                <SearchIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Filter">
-              <IconButton>
-                <FilterIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Settings">
-              <IconButton>
-                <SettingsIcon />
-              </IconButton>
-            </Tooltip>
           </Box>
         </Box>
       </Paper>
 
-      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Sidebar */}
-        <Paper sx={{ width: 300, borderRadius: 0, borderRight: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
-          {/* Product Input */}
-          <Box sx={{ p: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              Product Focus
-            </Typography>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Enter product name (optional)"
-              value={productName}
-              onChange={(e) => setProductName(e.target.value)}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <SmartToyIcon fontSize="small" />
-                  </InputAdornment>
-                ),
+      {/* Error Alert */}
+      {error && (
+        <Alert severity="warning" onClose={() => setError(null)} sx={{ m: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Messages Area */}
+      <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+        {messages.map((message) => (
+          <Box
+            key={message.id}
+            sx={{
+              display: 'flex',
+              justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
+              mb: 2,
+            }}
+          >
+            <Box
+              sx={{
+                maxWidth: '75%',
+                display: 'flex',
+                flexDirection: message.sender === 'user' ? 'row-reverse' : 'row',
+                alignItems: 'flex-start',
+                gap: 1,
               }}
-              sx={{ mb: 2 }}
-            />
-            {error && (
-              <Alert severity="warning" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            )}
-          </Box>
-
-          <Divider />
-
-          {/* Quick Actions */}
-          <Box sx={{ p: 2 }}>
-            <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              Quick Actions
-              <IconButton size="small" onClick={handleClearChat} title="Clear Chat">
-                <ClearIcon fontSize="small" />
-              </IconButton>
-            </Typography>
-            <Grid container spacing={1}>
-              {quickActions.map((action, index) => (
-                <Grid item xs={6} key={index}>
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      fullWidth
-                      onClick={() => handleQuickAction(action.label)}
-                      disabled={isLoading}
-                      sx={{ 
-                        p: 1, 
-                        flexDirection: 'column',
-                        fontSize: '0.7rem',
-                        height: 'auto',
-                        py: 1.5
-                      }}
-                    >
-                      <Typography sx={{ fontSize: '1.2rem', mb: 0.5 }}>
-                        {action.icon}
-                      </Typography>
-                      <Typography variant="caption" sx={{ textAlign: 'center' }}>
-                        {action.label}
-                      </Typography>
-                    </Button>
-                  </motion.div>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-
-          <Divider />
-
-          {/* Recent Conversations */}
-          <Box sx={{ flex: 1, overflow: 'auto' }}>
-            <Box sx={{ p: 2 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                Recent Conversations
-              </Typography>
-              <List dense>
-                {recentConversations.map((conversation) => (
-                  <ListItem key={conversation.id} button>
-                    <ListItemAvatar>
-                      <Badge
-                        badgeContent={conversation.unread}
-                        color="primary"
-                        invisible={conversation.unread === 0}
-                      >
-                        <Avatar sx={{ width: 32, height: 32 }}>
-                          <ChatIcon fontSize="small" />
-                        </Avatar>
-                      </Badge>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={conversation.title}
-                      secondary={
-                        <Box>
-                          <Typography variant="caption" color="textSecondary" noWrap>
-                            {conversation.preview}
-                          </Typography>
-                          <Typography variant="caption" color="textSecondary">
-                            {conversation.time}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </Box>
-          </Box>
-        </Paper>
-
-        {/* Main Chat Area */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {/* Search Bar */}
-          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-            <TextField
-              fullWidth
-              placeholder="Search messages..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              size="small"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Box>
-
-          {/* Messages */}
-          <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-            <AnimatePresence>
-              {filteredMessages.map((message, index) => (
-                <motion.div
-                  key={message.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                >
+            >
+              <Avatar
+                sx={{
+                  width: 36,
+                  height: 36,
+                  bgcolor: message.sender === 'user' ? 'primary.main' : 'grey.300',
+                }}
+              >
+                {message.sender === 'user' ? '👤' : '🧠'}
+              </Avatar>
+              <Paper
+                elevation={1}
+                sx={{
+                  p: 2,
+                  bgcolor: message.sender === 'user' ? 'primary.main' : 'grey.100',
+                  color: message.sender === 'user' ? 'white' : 'text.primary',
+                  borderRadius: 2,
+                  maxWidth: '100%',
+                }}
+              >
+                {message.sender === 'ai' ? (
                   <Box
                     sx={{
-                      display: 'flex',
-                      justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
-                      mb: 2,
+                      '& h2': {
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        mt: 0,
+                        mb: 1,
+                        color: 'inherit',
+                      },
+                      '& h3': {
+                        fontSize: '1rem',
+                        fontWeight: 'bold',
+                        mt: 1.5,
+                        mb: 0.5,
+                        color: 'inherit',
+                      },
+                      '& p': {
+                        fontSize: '0.875rem',
+                        mb: 1,
+                        color: 'inherit',
+                        lineHeight: 1.6,
+                      },
+                      '& ul, & ol': {
+                        pl: 2,
+                        mb: 1,
+                        '& li': {
+                          fontSize: '0.875rem',
+                          mb: 0.5,
+                          color: 'inherit',
+                        },
+                      },
+                      '& strong': {
+                        fontWeight: 'bold',
+                        color: 'inherit',
+                      },
+                      '& code': {
+                        bgcolor: 'rgba(0,0,0,0.1)',
+                        px: 0.5,
+                        py: 0.25,
+                        borderRadius: 1,
+                        fontSize: '0.8rem',
+                        fontFamily: 'monospace',
+                      },
                     }}
                   >
-                    <Box
-                      sx={{
-                        maxWidth: '70%',
-                        display: 'flex',
-                        flexDirection: message.sender === 'user' ? 'row-reverse' : 'row',
-                        alignItems: 'flex-start',
-                        gap: 1,
-                      }}
-                    >
-                      <Avatar sx={{ width: 32, height: 32 }}>
-                        {message.avatar}
-                      </Avatar>
-                      <Paper
-                        sx={{
-                          p: 2,
-                          backgroundColor: message.sender === 'user' ? 'primary.main' : 'grey.100',
-                          color: message.sender === 'user' ? 'white' : 'text.primary',
-                          borderRadius: 2,
-                          position: 'relative',
-                        }}
-                      >
-                        {message.sender === 'ai' ? (
-                          <Box sx={{ 
-                            '& h2': { 
-                              fontSize: '1.1rem', 
-                              fontWeight: 'bold', 
-                              mt: 2, 
-                              mb: 1, 
-                              color: 'inherit',
-                              borderBottom: '1px solid rgba(255,255,255,0.2)',
-                              pb: 0.5
-                            },
-                            '& h3': { 
-                              fontSize: '1rem', 
-                              fontWeight: 'bold', 
-                              mt: 1.5, 
-                              mb: 0.5, 
-                              color: 'inherit' 
-                            },
-                            '& p': { 
-                              fontSize: '0.875rem', 
-                              mb: 1, 
-                              color: 'inherit',
-                              lineHeight: 1.5
-                            },
-                            '& ul': { 
-                              pl: 2, 
-                              mb: 1,
-                              '& li': {
-                                fontSize: '0.875rem',
-                                mb: 0.5,
-                                color: 'inherit'
-                              }
-                            },
-                            '& ol': { 
-                              pl: 2, 
-                              mb: 1,
-                              '& li': {
-                                fontSize: '0.875rem',
-                                mb: 0.5,
-                                color: 'inherit'
-                              }
-                            },
-                            '& strong': { 
-                              fontWeight: 'bold', 
-                              color: 'inherit' 
-                            },
-                            '& em': { 
-                              fontStyle: 'italic', 
-                              color: 'inherit' 
-                            },
-                            '& code': {
-                              backgroundColor: 'rgba(255,255,255,0.1)',
-                              padding: '2px 4px',
-                              borderRadius: '3px',
-                              fontSize: '0.8rem',
-                              fontFamily: 'monospace'
-                            }
-                          }}>
-                            <ReactMarkdown 
-                              remarkPlugins={[remarkGfm]}
-                              components={{
-                                h2: ({children}) => <Typography variant="h6" component="h2">{children}</Typography>,
-                                h3: ({children}) => <Typography variant="subtitle1" component="h3">{children}</Typography>,
-                                p: ({children}) => <Typography variant="body2" component="p">{children}</Typography>,
-                                ul: ({children}) => <Box component="ul">{children}</Box>,
-                                ol: ({children}) => <Box component="ol">{children}</Box>,
-                                li: ({children}) => <Typography component="li" variant="body2">{children}</Typography>,
-                                strong: ({children}) => <Typography component="span" sx={{ fontWeight: 'bold' }}>{children}</Typography>,
-                                em: ({children}) => <Typography component="span" sx={{ fontStyle: 'italic' }}>{children}</Typography>,
-                                code: ({children}) => <Typography component="code" variant="body2">{children}</Typography>,
-                              }}
-                            >
-                              {message.text}
-                            </ReactMarkdown>
-                          </Box>
-                        ) : (
-                          <Typography variant="body2">
-                            {message.text}
-                          </Typography>
-                        )}
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            display: 'block',
-                            mt: 1,
-                            opacity: 0.7,
-                            fontSize: '0.7rem',
-                          }}
-                        >
-                          {message.timestamp}
-                        </Typography>
-                      </Paper>
-                    </Box>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {message.text}
+                    </ReactMarkdown>
                   </Box>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-            <div ref={messagesEndRef} />
-          </Box>
-
-          {/* Message Input */}
-          <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1 }}>
-              <IconButton size="small">
-                <AttachFileIcon />
-              </IconButton>
-              <TextField
-                fullWidth
-                multiline
-                maxRows={4}
-                placeholder="Type your message..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                variant="outlined"
-                size="small"
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton size="small">
-                        <EmojiIcon />
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                <IconButton
-                  color="primary"
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || isLoading}
-                  sx={{ 
-                    backgroundColor: 'primary.main',
-                    color: 'white',
-                    '&:hover': {
-                      backgroundColor: 'primary.dark',
-                    },
-                    '&:disabled': {
-                      backgroundColor: 'grey.300',
-                    }
+                ) : (
+                  <Typography variant="body2">{message.text}</Typography>
+                )}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: 'block',
+                    mt: 1,
+                    opacity: 0.7,
+                    fontSize: '0.7rem',
                   }}
                 >
-                  {isLoading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
-                </IconButton>
-              </motion.div>
+                  {message.timestamp}
+                </Typography>
+              </Paper>
             </Box>
           </Box>
-        </Box>
+        ))}
+        <div ref={messagesEndRef} />
       </Box>
 
-      {/* Product Name Dialog */}
-      <Dialog open={showProductDialog} onClose={() => setShowProductDialog(false)}>
-        <DialogTitle>
-          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AnalyticsIcon />
-            Set Product for Analysis
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            To provide more accurate analysis, please specify which product you'd like me to focus on.
-          </Typography>
+      {/* Input Area */}
+      <Paper elevation={3} sx={{ p: 2, borderRadius: 0 }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
           <TextField
-            autoFocus
             fullWidth
-            placeholder="e.g., iPhone 15, Tesla Model 3, Nike Air Max..."
-            value={productName}
-            onChange={(e) => setProductName(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                setShowProductDialog(false);
-                handleQuickAction('Analyze Product');
-              }
-            }}
+            multiline
+            maxRows={4}
+            placeholder="Type your message..."
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            onKeyPress={handleKeyPress}
+            disabled={isLoading}
+            variant="outlined"
+            size="small"
           />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowProductDialog(false)}>Cancel</Button>
-          <Button 
-            variant="contained" 
-            onClick={() => {
-              setShowProductDialog(false);
-              handleQuickAction('Analyze Product');
+          <IconButton
+            color="primary"
+            onClick={handleSendMessage}
+            disabled={!inputMessage.trim() || isLoading}
+            sx={{
+              bgcolor: 'primary.main',
+              color: 'white',
+              '&:hover': {
+                bgcolor: 'primary.dark',
+              },
+              '&:disabled': {
+                bgcolor: 'grey.300',
+              },
             }}
-            disabled={!productName.trim()}
           >
-            Analyze Product
-          </Button>
-        </DialogActions>
-      </Dialog>
+            {isLoading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
+          </IconButton>
+        </Box>
+      </Paper>
     </Box>
   );
 };

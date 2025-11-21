@@ -1,0 +1,112 @@
+[tool.poetry]
+name = "brandpulse"
+version = "1.0.0"
+description = "BrandPulse - AI-Powered Brand Sentiment Analysis Platform"
+authors = ["BrandPulse Team <team@brandpulse.com>"]
+readme = "README.md"
+packages = [
+    {include = "backend"},
+    {include = "database-api", from = "."},
+    {include = "model"},
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+# Core FastAPI dependencies
+fastapi = "0.116.2"
+uvicorn = {extras = ["standard"], version = "0.35.0"}
+python-multipart = "0.0.20"
+python-dotenv = "1.1.1"
+pydantic = "^2.0.0"
+
+# Google AI/API dependencies
+google-adk = "^1.14.1"
+google-generativeai = "^0.8.3"
+
+# Database dependencies
+pymysql = "^1.1.0"
+mysql-connector-python = "^8.0.33"
+psycopg2-binary = "2.9.9"
+sqlalchemy = "2.0.23"
+alembic = "1.13.1"
+asyncpg = "0.29.0"
+
+# HTTP client
+httpx = "^0.28.1"
+requests = "^2.31.0"
+
+# ML/AI dependencies for model
+tensorflow = {version = "^2.10.0", optional = true}
+numpy = {version = "^1.23.0", optional = true}
+pandas = {version = "^1.5.0", optional = true}
+scikit-learn = {version = "^1.2.0", optional = true}
+matplotlib = {version = "^3.6.0", optional = true}
+seaborn = {version = "^0.12.0", optional = true}
+
+# Development and optional dependencies
+jupyter = {version = "^1.0.0", optional = true}
+ipython = {version = "^8.0.0", optional = true}
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0.0"
+pytest-asyncio = "^0.21.0"
+black = "^23.0.0"
+isort = "^5.12.0"
+flake8 = "^6.0.0"
+mypy = "^1.0.0"
+
+[tool.poetry.group.ml]
+optional = true
+
+[tool.poetry.group.ml.dependencies]
+tensorflow = "^2.10.0"
+numpy = "^1.23.0"
+pandas = "^1.5.0"
+scikit-learn = "^1.2.0"
+matplotlib = "^3.6.0"
+seaborn = "^0.12.0"
+jupyter = "^1.0.0"
+ipython = "^8.0.0"
+
+[tool.poetry.extras]
+ml = ["tensorflow", "numpy", "pandas", "scikit-learn", "matplotlib", "seaborn"]
+dev = ["jupyter", "ipython"]
+all = ["tensorflow", "numpy", "pandas", "scikit-learn", "matplotlib", "seaborn", "jupyter", "ipython"]
+
+[tool.poetry.scripts]
+brandpulse-backend = "backend.main:app"
+brandpulse-db-api = "database-api.main:app"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

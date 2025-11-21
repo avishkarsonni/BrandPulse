@@ -60,10 +60,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        # Use relative URLs - nginx will proxy /api/ to backend:8000
+        # Browser cannot resolve Docker service names like "backend"
+        - REACT_APP_API_URL=
+        - REACT_APP_DB_API_URL=/db-api
+        - REACT_APP_WS_URL=ws://localhost:8000
+        - NODE_ENV=production
     container_name: brandpulse-frontend
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
-      - REACT_APP_DB_API_URL=http://localhost:8001
+      # Use relative URLs so nginx can proxy requests
+      - REACT_APP_API_URL=
+      - REACT_APP_DB_API_URL=/db-api
       - REACT_APP_WS_URL=ws://localhost:8000
       - NODE_ENV=production
     ports:

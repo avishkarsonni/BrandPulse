@@ -42,6 +42,7 @@ import LandingPage from './components/LandingPage';
 import Chat from './components/Chat';
 import ProductSearch from './components/ProductSearch';
 import WebCrawlers from './components/WebCrawlers';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const drawerWidth = 240;
 
@@ -269,15 +270,17 @@ function App() {
                 </motion.div>
               } />
               <Route path="/dashboard" element={
-                <motion.div
-                  key="dashboard"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.4 }}
-                >
-                  <Dashboard />
-                </motion.div>
+                <ErrorBoundary>
+                  <motion.div
+                    key="dashboard"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.4 }}
+                  >
+                    <Dashboard />
+                  </motion.div>
+                </ErrorBoundary>
               } />
               <Route path="/analytics" element={
                 <motion.div

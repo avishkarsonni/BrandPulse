@@ -1,13 +1,58 @@
 import axios from 'axios';
 
 // Create axios instance with default config
+// IMPORTANT: In Docker, nginx proxies /api/ to backend:8000
+// So we should use relative URLs or same-origin URLs
+// Browser cannot resolve Docker service names like "backend"
+const getApiBaseURL = () => {
+  const envUrl = process.env.REACT_APP_API_URL;
+  
+  // Always check for Docker service names first (most common issue)
+  if (envUrl && (envUrl.includes('backend:') || envUrl.includes('brandpulse-') || envUrl.includes('database-api:'))) {
+    console.warn('[API Config] Detected Docker service name in REACT_APP_API_URL:', envUrl);
+    console.warn('[API Config] Using relative URL instead (nginx will proxy)');
+    // Use relative URL - nginx will proxy to backend
+    return '';
+  }
+  
+  // If empty string or undefined, use relative URL (nginx will proxy)
+  if (!envUrl || envUrl.trim() === '') {
+    return '';
+  }
+  
+  // For local development, use explicit localhost URL
+  const baseURL = envUrl;
+  console.log('[API Config] Using baseURL:', baseURL || '(relative - nginx proxy)');
+  return baseURL;
+};
+
+let apiBaseURL = getApiBaseURL();
+
+// Runtime override: If baseURL contains Docker service name, force relative URL
+// This handles cases where env var was baked into build with wrong value
+if (apiBaseURL && (apiBaseURL.includes('backend:') || apiBaseURL.includes('brandpulse-') || apiBaseURL.includes('database-api:'))) {
+  console.warn('[API Config] Runtime override: Detected Docker service name, forcing relative URL');
+  apiBaseURL = '';
+}
+
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000',
+  baseURL: apiBaseURL,
   timeout: 30000, // Increased timeout for Gemini API responses
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: false, // Don't send credentials for CORS
 });
+
+// Runtime check: Override if still wrong (handles baked-in values)
+if (api.defaults.baseURL && (api.defaults.baseURL.includes('backend:') || api.defaults.baseURL.includes('brandpulse-'))) {
+  console.warn('[API Config] Runtime fix: Overriding baked-in Docker service name');
+  api.defaults.baseURL = '';
+}
+
+// Log the final configuration
+console.log('[API Config] Axios instance created with baseURL:', api.defaults.baseURL || '(empty - relative URLs)');
+console.log('[API Config] Full URL example:', (api.defaults.baseURL || window.location.origin) + '/api/chat');
 
 // Create database API instance
 const dbApi = axios.create({
@@ -625,17 +670,67 @@ class ApiService {
     }
   }
 
-  // Chat with ADK Agent endpoints
+  // Chat with BrandPulse Assistant (Gemini)
+  // Backend returns: { response: string, timestamp: string, agent_name: string }
   async sendChatMessage(text, productName = null, context = null) {
     try {
+      // Log the request for debugging
+      const baseURL = api.defaults.baseURL || '';
+      const fullUrl = baseURL ? `${baseURL}/api/chat` : '/api/chat';
+      console.log(`[Chat API] Sending request to: ${fullUrl} (baseURL: ${baseURL || 'relative'})`);
+      
       const response = await api.post('/api/chat', {
-        text,
+        text: text,
         product_name: productName,
-        context
+        context: context
       });
+      
+      console.log(`[Chat API] Response received:`, response.status, response.data ? 'OK' : 'No data');
+      
+      // Return the response data directly - backend returns:
+      // { response: "...", timestamp: "...", agent_name: "..." }
       return response.data;
     } catch (error) {
-      throw new Error('Failed to send message to agent');
+      // Enhanced error handling with detailed logging
+      console.error('[Chat API] Error details:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.status,
+        responseData: error.response?.data,
+        request: error.request ? 'Request made but no response' : 'No request made',
+        config: {
+          url: error.config?.url,
+          baseURL: error.config?.baseURL || api.defaults.baseURL,
+          method: error.config?.method
+        }
+      });
+      
+      // Re-throw with proper error handling
+      if (error.response) {
+        // Server responded with error status
+        // Status 0 typically means CORS error or network failure
+        if (error.response.status === 0) {
+          throw new Error('Network error: Request was blocked. This might be a CORS issue. Please check if the backend is running and accessible.');
+        }
+        const errorMsg = error.response.data?.detail || error.response.data?.message || `Server error: ${error.response.status}`;
+        throw new Error(errorMsg);
+      } else if (error.request) {
+        // Request was made but no response received
+        // Check if it's a CORS error (status 0 in some cases)
+        if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+          throw new Error('Network error: Could not reach the server. Please check if the backend is running on port 8000 and CORS is properly configured.');
+        }
+        throw new Error('Network error: Could not reach the server. Please check if the backend is running on port 8000.');
+      } else if (error.code === 'ECONNABORTED') {
+        // Request timeout
+        throw new Error('Request timeout: The server took too long to respond.');
+      } else if (error.code === 'ERR_NETWORK') {
+        // Network error
+        throw new Error('Network error: Unable to connect to the server. Please check your connection and ensure the backend is running.');
+      } else {
+        // Something else happened
+        throw new Error(error.message || 'Failed to send message');
+      }
     }
   }
 
