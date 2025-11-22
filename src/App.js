@@ -18,7 +18,6 @@ import {
 import {
   Menu as MenuIcon,
   Analytics as AnalyticsIcon,
-  Dashboard as DashboardIcon,
   Topic as TopicIcon,
   Settings as SettingsIcon,
   Brightness4 as DarkModeIcon,
@@ -33,7 +32,6 @@ import { useTheme } from './contexts/ThemeContext';
 import { ProductProvider } from './contexts/ProductContext';
 
 import Analytics from './components/Analytics';
-import Dashboard from './components/Dashboard';
 import Topics from './components/Topics';
 import Settings from './components/Settings';
 import LandingPage from './components/LandingPage';
@@ -55,7 +53,6 @@ function App() {
 
   const menuItems = [
     { text: 'Home', icon: <HomeIcon />, path: '/' },
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
     { text: 'Product Search', icon: <SearchIcon />, path: '/search' },
     { text: 'Web Crawlers', icon: <WebIcon />, path: '/crawlers' },
@@ -264,17 +261,6 @@ function App() {
                   transition={{ duration: 0.5 }}
                 >
                   <LandingPage />
-                </motion.div>
-              } />
-              <Route path="/dashboard" element={
-                <motion.div
-                  key="dashboard"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.4 }}
-                >
-                  <Dashboard />
                 </motion.div>
               } />
               <Route path="/analytics" element={

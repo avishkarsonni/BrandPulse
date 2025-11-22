@@ -16,7 +16,6 @@ import {
 } from '@mui/material';
 import {
   Analytics,
-  Dashboard as DashboardIcon,
   Topic,
   Settings,
   TrendingUp,
@@ -202,12 +201,6 @@ const LandingPage = () => {
       title: 'Real-time Analytics',
       description: 'Monitor sentiment trends and patterns with live data updates and interactive visualizations.',
       color: '#4caf50',
-    },
-    {
-      icon: <DashboardIcon sx={{ fontSize: 40 }} />,
-      title: 'Dashboard Overview',
-      description: 'Get a comprehensive overview of all analytics, reviews, and crawler statistics in one place.',
-      color: '#2196f3',
     },
     {
       icon: <Topic sx={{ fontSize: 40 }} />,
